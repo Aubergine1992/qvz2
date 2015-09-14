@@ -312,6 +312,10 @@ void compute_clusters(em_markov em){
     
     double tmp = 0;
     
+    for (i = 0; i < em->num_models; i++) {
+        em->clust->cluster_sizes[i] = 0;
+    }
+    
     for (seq_idx = 0; seq_idx < em->num_seq; seq_idx++) {
         tmp = 0;
         tmp_model = 0;
@@ -371,25 +375,29 @@ uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FI
     
     initialize_em_markov(em);
     
-    fprintf(fo, "%d\n", em->num_models);
-    fprintf(fo, "%d\n", iters);
+    //fprintf(fo, "%d\n", em->num_models);
+    //fprintf(fo, "%d\n", iters);
     
     
     while (i < iters){
-        printf("Iteration: %d\n",i);
+        //printf("Iteration: %d\n",i);
         e_step(em);
         m_step(em);
         data_ll = compute_expected_ll(em);
         compute_clusters(em);
         //compute_model_entropy(em, 0);
-        fprintf(fo,"%f\n", -data_ll/em->num_seq);
-        for (j = 0; j < em->num_models; j++) {
-            fprintf(fo,"%d\n", em->clust->cluster_sizes[j]);
-        }
+        //fprintf(fo,"%f\n", -data_ll/em->num_seq);
+        //for (j = 0; j < em->num_models; j++) {
+          //  fprintf(fo,"%d\n", em->clust->cluster_sizes[j]);
+        //}
+        //printf("%f\n",data_ll);
         i ++;
     }
     
-    print_graph(em, fgraph);
+    for (j = 0; j < em->num_seq; j++) {
+        fprintf(fo, "%d\n",em->clust->clusters[j]);
+    }
+    //print_graph(em, fgraph);
     
     return 0;
     
