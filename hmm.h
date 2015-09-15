@@ -31,11 +31,12 @@ typedef struct forwards_backwards_t{
 
 typedef struct baum_welch_t{
     struct hmm_t *model;
-    forwards_backwards *fb;
+    forwards_backwards fb;
     uint32_t num_states;
     uint64_t num_seq;
     uint32_t seq_length;
     qv_file qv_seqs;
+    double *nll;
 }*baum_welch;
 
 
