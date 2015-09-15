@@ -162,36 +162,36 @@ double em_step_bw_temporal(baum_welch bw){
     
     for (i = 0; i < bw->num_seq; i++) {
         
-        //printf("Seq: %d\n",i);
+        bw->nll[i] = 0;
         
-        forwards_backwards_algorithm_temporal(bw->fb[0], bw->model, seq);
+        forwards_backwards_algorithm_temporal(bw->fb, bw->model, seq);
         
         // Compute the new A
         for (j = 0; j < bw->num_states; j++) {
             for (k = j+(K-j%K), l = 0; (k < bw->model->num_states && l < K); k++, l++) {
                 for (t = 0; t < bw->seq_length-1; t++) {
-                    A[j][k] += bw->fb[0]->alpha[t][j]*bw->model->A[j][k]*bw->model->B[k][seq[t+1]]*bw->fb[0]->c[t+1]*bw->fb[0]->beta[t+1][k];
+                    A[j][k] += bw->fb->alpha[t][j]*bw->model->A[j][k]*bw->model->B[k][seq[t+1]]*bw->fb->c[t+1]*bw->fb->beta[t+1][k];
                 }
             }
         }
         
         // Compute the new pi
         for (j = 0; j < bw->num_states; j++) {
-            pi[j] += bw->fb[0]->alpha[0][j]*bw->fb[0]->beta[0][j];
+            pi[j] += bw->fb->alpha[0][j]*bw->fb->beta[0][j];
             //pi[j] += bw->fb[0]->gamma[0][j];
         }
         
         // Compute the new B
         for (j = 0; j < bw->num_states; j++) {
             for (t = 0; t < bw->seq_length; t++) {
-                B[j][seq[t]] += bw->fb[0]->alpha[t][j]*bw->fb[0]->beta[t][j];
+                B[j][seq[t]] += bw->fb->alpha[t][j]*bw->fb->beta[t][j];
                 //B[j][seq[t]] += bw->fb[0]->gamma[t][j];
             }
         }
         
         // Compute nll
-        for (t = 0; t < bw->fb[0]->seq_length; t++) {
-            nll+= log(bw->fb[0]->c[t]);
+        for (t = 0; t < bw->fb->seq_length; t++) {
+            bw->nll[i]+= log(bw->fb->c[t]);
         }
         
         seq += bw->seq_length;
