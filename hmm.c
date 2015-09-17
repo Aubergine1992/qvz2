@@ -368,6 +368,43 @@ void print_graph_hmm(hmm m, const char* graph_file_path){
 }
 
 // *******************************************************************************//
+void output_nll(FILE *fo, baum_welch bw){
+    
+    uint32_t i = 0;
+    
+    for (i = 0; i < bw->num_seq; i++) {
+        fprintf(fo, "%f\n",bw->nll[i]);
+    }
+    
+}
+// *******************************************************************************//
+void output_expected_path(FILE *fo, baum_welch bw){
+    uint32_t i = 0, t = 0, j = 0, state = 0;
+    
+    double gamma_j, gamma;
+    
+    uint8_t* seq = bw->qv_seqs->file_head;
+    
+    for (i = 0; i < bw->num_seq; i++) {
+        forwards_backwards_algorithm(bw->fb, bw->model, seq);
+        for (t = 0; t < bw->seq_length; t++) {
+            gamma = 0.0;
+            for (j = 0; j < bw->num_states; j++) {
+                gamma_j = (bw->fb->alpha[t][j]*bw->fb->beta[t][j]);
+                if(gamma_j > gamma){
+                    gamma = gamma_j;
+                    state = j;
+                }
+            }
+            fprintf(fo,"%u ", state);
+        }
+        fprintf(fo,"\n");
+        seq += bw->seq_length;
+        seq++;// TODO: remove. Necessary now because of the zero between sequences.
+    }
+}
+
+// *******************************************************************************//
 
 void perform_bw(qv_file qv_f, uint32_t num_states, uint32_t num_iters, FILE *fo, const char *fgraph){
     
@@ -379,226 +416,11 @@ void perform_bw(qv_file qv_f, uint32_t num_states, uint32_t num_iters, FILE *fo,
     
     while (i++ < num_iters) {
         em_step_bw(bw);
-        print_graph_hmm(bw->model, fgraph);
+        //print_graph_hmm(bw->model, fgraph);
         printf("%d\n",i);
     }
-    //output_model(bw->model, fo);
-    for (i = 0; i < qv_f->lines; i++) {
-        fprintf(fo, "%f\n",bw->nll[i]);
-    }
+    output_model(bw->model, fo);
+    //output_nll(fo,bw);
+    output_expected_path(fo, bw);
+    
 }
-
-// *******************************************************************************//
-// *******************************************************************************//
-// *******************************************************************************//
-// *******************************************************************************//
-
-/* void e_step_bw(baum_welch bw){
- 
- uint32_t i;
- 
- uint8_t *seq;
- 
- seq = bw->qv_seqs->file_head;
- 
- for (i = 0; i < bw->num_seq; i++) {
- forwards_backwards_algorithm(bw->fb[i], bw->model, seq);
- seq += bw->seq_length;
- seq++;// TODO: remove. Necessary now because of the zero between sequences.
- }
- }
- 
- 
- 
- void m_step_bw(baum_welch bw){
- 
- uint32_t j,k,i,t,l;
- 
- double Ajk = 0.0, pi = 0.0, Nj = 0.0;
- double s;
- 
- uint8_t* seq = bw->qv_seqs->file_head;
- 
- // Compute the new A
- for (j = 0; j < bw->num_states; j++) {
- 
- Nj = 0.0;
- for (i = 0; i < bw->num_seq; i++) {
- for (t = 0; t < bw->seq_length-1; t++) {
- Nj += bw->fb[i]->gamma[t][j];
- }
- }
- 
- s = 0.0;
- for (k = 0; k < bw->num_states; k++) {
- Ajk = 0.0;
- for (i = 0; i < bw->num_seq; i++) {
- for (t = 0; t < bw->seq_length-1; t++) {
- Ajk += bw->fb[i]->chi[t][j][k];
- }
- }
- bw->model->A[j][k] = Ajk;
- s += bw->model->A[j][k];
- }
- // Normalize wrt k
- if (s != 0) {
- for (k = 0; k < bw->num_states; k++) {
- bw->model->A[j][k] /= s;
- }
- }
- }
- 
- // Compute the new pi
- s = 0.0;
- for (j = 0; j < bw->num_states; j++) {
- pi = 0.0;
- for (i = 0; i < bw->num_seq; i++) {
- pi += bw->fb[i]->gamma[0][j];
- }
- bw->model->pi[j] = pi;
- s += pi;
- }
- // Normalize wrt j
- if (s != 0) {
- for (j = 0; j < bw->num_states; j++) {
- bw->model->pi[j] /= s;
- }
- }
- 
- // Compute the new B
- for (j = 0; j < bw->num_states; j++) {
- 
- Nj = 0.0;
- seq = bw->qv_seqs->file_head;
- for (i = 0; i < bw->num_seq; i++) {
- for (t = 0; t < bw->seq_length; t++) {
- bw->model->B[j][seq[t]] += bw->fb[i]->gamma[t][j];
- Nj += bw->fb[i]->gamma[t][j];
- }
- seq++;// TODO: remove. Necessary now because of the zero between sequences.
- seq += bw->seq_length;
- }
- // Normalize
- for (l = 0; l < QV_ALPHABET; l++) {
- if (Nj != 0) {
- bw->model->B[j][l] /= Nj;
- }
- }
- }
- }*/
-// *******************************************************************************//
-/*
- double compute_nll_bw(baum_welch bw){
- 
- uint32_t i,k,j,t;
- 
- double nll = 0.0, nll1, nll2, nll3;
- 
- double pi, Ajk;
- 
- uint8_t* seq = bw->qv_seqs->file_head;
- 
- uint8_t x;
- 
- for (k = 0; k < bw->num_states; k++) {
- if (bw->model->pi[k] == 0) {
- continue;
- }
- pi = 0.0;
- for (i = 0; i < bw->num_seq; i++) {
- pi += bw->fb[i]->gamma[0][k];
- }
- nll += pi*log(bw->model->pi[k]);
- }
- nll1 = nll;
- //printf("nll: %f\t",nll1);
- 
- for (j = 0; j < bw->num_states; j++) {
- for (k = 0; k < bw->num_states; k++) {
- Ajk = 0.0;
- for (i = 0; i < bw->num_seq; i++) {
- for (t = 0; t < bw->seq_length-1; t++) {
- Ajk += bw->fb[i]->chi[t][j][k];
- 
- }
- }
- if (bw->model->A[j][k] != 0) {
- nll += Ajk*log(bw->model->A[j][k]);
- }
- 
- }
- }
- nll2 = nll - nll1;
- //printf("%f\t",nll2);
- 
- for (k = 0; k < bw->num_states; k++) {
- seq = bw->qv_seqs->file_head;
- for (i = 0; i < bw->num_seq; i++) {
- for (t = 0; t < bw->seq_length; t++) {
- x = *seq, seq++;
- if (bw->model->B[k][x] != 0) {
- nll += bw->fb[i]->gamma[t][k]*log(bw->model->B[k][x]);
- }
- }
- seq++;// TODO: remove. Necessary now because of the zero between sequences.
- }
- }
- nll3 = nll - nll1 - nll2;
- //printf("%f\t%f\n",nll3, nll);
- return nll;
- }
- 
- 
- *****************************************************
-// Computing the posterior transition probability [chi].
-// Computing the posterior probability [gamma].
-for (t = 0; t < fb->seq_length-1; t++) {
- //s = 0.0;
- //C = 0.0;
- for (j = 0; j < fb->num_states;j++) {
- fb->gamma[t][j] = fb->alpha[t][j]*fb->beta[t][j];
- //C += fb->alpha[t][j]*fb->beta[t][j];
- }
- for (j = 0; j < fb->num_states; j++) {
- for (i = 0; i < fb->num_states; i++) {
- fb->chi[t][i][j] = fb->alpha[t][i]*model->A[i][j]*model->B[j][seq[t+1]]*fb->c[t+1]*fb->beta[t+1][j];
- //fb->chi[t][i][j] /= C;
- //s += fb->chi[t][i][j];
- }
- }
- // Chi should be already normalized
- //if (s < 0.99999998 || s> 1.000000002 || C < 0.99999998 || C> 1.000000002) {
- //printf("foooooo");
- //for (j = 0; j < fb->num_states; j++) {
- // for (i = 0; i < fb->num_states; i++) {
- //    fb->chi[t][i][j] /= s;
- // }
- //}
- //}
- }*/
-//double test[200][200] = {{0}};
-// Computing the posterior probability [gamma].
-//for (t = 0; t < fb->seq_length; t++) {
-//for (j = 0; j < fb->num_states; j++) {
-//fb->gamma[t][j] = fb->alpha[t][j]*fb->beta[t][j];
-//}
-//}
-// Computing the posterior probability [gamma].
-/*for (t = 0; t < fb->seq_length; t++) {
- for (j = 0; j < fb->num_states; j++) {
- for (i = 0; i < fb->num_states; i++) {
- test[t][j] += fb->chi[t][j][i];
- }
- }
- }
- 
- for (t = 0; t < fb->seq_length-1; t++) {
- s = 0.0;
- for (j = 0; j < fb->num_states; j++) {
- if (test[t][j] - fb->gamma[t][j] > 0.00000001 || test[t][j] - fb->gamma[t][j] < -0.00000001 ) {
- printf("asdfasdf");
- }
- }
- }
- */
-// *******************************************************************************//
