@@ -490,7 +490,7 @@ uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FI
         data_ll = m_step_boost(em);
         printf("%f\n",data_ll);
         //data_ll = compute_expected_ll(em);
-        //compute_clusters(em);
+        compute_clusters(em);
         //compute_model_entropy(em, 0);
         //fprintf(fo,"%f\n", -data_ll/em->num_seq);
         //for (j = 0; j < em->num_models; j++) {
