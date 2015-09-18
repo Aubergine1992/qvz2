@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 #include <math.h>
 #include <assert.h>
+#include <stdint.h>
 
 //#define log2(a) log(a)/log(2.0)
 
