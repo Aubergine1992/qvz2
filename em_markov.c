@@ -161,84 +161,7 @@ void e_step(em_markov em){
 
 // *******************************************************************************//
 
-void m_step(em_markov em){
-    uint32_t seq_idx, model_idx, node_idx, origin_node_idx, dest_node_idx, t;
-    
-    double temp_pi, temp_w, temp_Ajk,temp_counts, norm_cte = 0;
-    
-    double *rl;
-    uint8_t *qvs;
-    
-    const uint32_t read_length = em->qv_seqs->read_length;
-    
-    for (model_idx = 0; model_idx < em->num_models; ++model_idx) {
-        
-        // Update the model prior
-        rl = em->r[model_idx];
-        temp_w = 0;
-        for (seq_idx = 0; seq_idx < em->num_seq; ++seq_idx){
-            temp_w += *rl, rl++;
-        }
-        em->models_prior[model_idx] = temp_w/em->num_seq;
-        
-        // Update the models pi
-        norm_cte = 0;
-        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes; node_idx++) {
-            qvs = em->qv_seqs->file_head;
-            rl = em->r[model_idx];
-            temp_pi = 0;
-            for (seq_idx = 0; seq_idx < em->num_seq; ++seq_idx){
-                temp_pi += (*qvs == node_idx)? *rl : 0;
-                rl++;
-                qvs += read_length;
-                qvs++; // TODO: remove. Necessary now because of the zero between sequences.
-            }
-            norm_cte += temp_pi;
-            em->models[model_idx].pi[node_idx] = temp_pi;
-        }
-        // Normalize wrt num_nodes
-        assert(norm_cte!=0);
-        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes; node_idx++) {
-            em->models[model_idx].pi[node_idx] /= norm_cte;
-        }
-        
-        // Update the models A
-        for (origin_node_idx = 0; origin_node_idx < em->models[model_idx].num_nodes; origin_node_idx++) {
-            norm_cte = 0;
-            for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
-                qvs = em->qv_seqs->file_head;
-                rl = em->r[model_idx];
-                temp_Ajk = 0;
-                for (seq_idx = 0; seq_idx < em->num_seq; ++seq_idx){
-                    temp_counts = 0;
-                    for (t = 0; t < read_length - 1; t++) {
-                        temp_counts += (*qvs == origin_node_idx && *(qvs+1) == dest_node_idx )? 1 : 0;
-                        qvs++;
-                    }
-                    qvs++;
-                    qvs++;// TODO: remove. Necessary now because of the zero between sequences.
-                    temp_Ajk += ((*rl) * temp_counts);
-                    rl++;
-                }
-                norm_cte += temp_Ajk;
-                em->models[model_idx].A[origin_node_idx][dest_node_idx] = temp_Ajk;
-            }
-            // Normalize wrt num_dest_nodes
-            // Note that here we allow for zero probability as we don't mind overfitting (for now...)
-            // This is quite dangerous...
-            if(norm_cte!=0){
-                for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
-                    em->models[model_idx].A[origin_node_idx][dest_node_idx] /= norm_cte;
-                }
-            }
-        }
-    }
-    
-}
-
-// *******************************************************************************//
-
-double m_step_boost(em_markov em){
+double m_step(em_markov em){
     uint32_t seq_idx, model_idx, node_idx, dest_node_idx, t;
     uint32_t i;
     
@@ -337,78 +260,13 @@ double m_step_boost(em_markov em){
             
         }
     }
+    
+    for (i = 0; i < em->models[0].num_nodes; i++) {
+        free(temp_Ajk[i]);
+    }
+    free(temp_Ajk);
     return nll;
 }
-
-
-// ***************************************************************//
-//
-// ***************************************************************//
-
-double compute_expected_ll(em_markov em){
-    uint32_t seq_idx, model_idx, origin_node_idx, dest_node_idx, node_idx, t;
-    
-    uint8_t *qvs;
-    
-    double ll = 0.0, tmp, tmp_pi, tmp_A, tmp_Ajk, tmp_counts;
-    double *rl;
-    
-    uint32_t read_length = em->qv_seqs->read_length;
-    
-    for (seq_idx = 0; seq_idx < em->num_seq; seq_idx++) {
-        for (model_idx = 0; model_idx < em->num_models; model_idx++) {
-            ll += em->r[model_idx][seq_idx]*log(em->models_prior[model_idx]);
-        }
-    }
-    
-    tmp_pi = 0;
-    for (model_idx = 0; model_idx < em->num_models; ++model_idx){
-        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes; node_idx++) {
-            qvs = em->qv_seqs->file_head;
-            rl = em->r[model_idx];
-            tmp = 0;
-            for (seq_idx = 0; seq_idx < em->num_seq; ++seq_idx){
-                tmp += (*qvs == node_idx)? *rl : 0;
-                rl++;
-                qvs += read_length;
-                qvs++; // TODO: remove. Necessary now because of the zero between sequences.
-            }
-            if (em->models[model_idx].pi[node_idx] != 0 && tmp != 0) {
-                tmp_pi += log(em->models[model_idx].pi[node_idx])*tmp;
-            }
-            
-        }
-    }
-    tmp_A = 0;
-    for (model_idx = 0; model_idx < em->num_models; ++model_idx){
-        for (origin_node_idx = 0; origin_node_idx < em->models[model_idx].num_nodes; origin_node_idx++) {
-            for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
-                qvs = em->qv_seqs->file_head;
-                rl = em->r[model_idx];
-                tmp_Ajk = 0;
-                for (seq_idx = 0; seq_idx < em->num_seq; ++seq_idx){
-                    tmp_counts = 0;
-                    for (t = 0; t < read_length - 1; t++) {
-                        tmp_counts += (*qvs == origin_node_idx && *(qvs+1) == dest_node_idx )? 1 : 0;
-                        qvs++;
-                    }
-                    qvs++;
-                    qvs++;// TODO: remove. Necessary now because of the zero between sequences.
-                    tmp_Ajk += ((*rl) * tmp_counts);
-                    rl++;
-                }
-                if (em->models[model_idx].A[origin_node_idx][dest_node_idx] != 0 && tmp_Ajk != 0) {
-                    tmp_A += log(em->models[model_idx].A[origin_node_idx][dest_node_idx])*tmp_Ajk;
-                }
-            }
-        }
-    }
-    
-    ll = ll + tmp_pi + tmp_A;
-    
-    return ll;
-}
-
 // *******************************************************************************//
 
 void compute_clusters(em_markov em){
@@ -469,8 +327,39 @@ void print_graph(em_markov m, FILE * graph_file){
 }
 
 // *******************************************************************************//
+void split_data(char* path_head, em_markov em){
+    uint32_t i = 0, cluster_id, t;
+    FILE **fo;
+    char path_buffer[1024];
+    char cluster_name[256] = "/cluster";
+    
+    
+    fo = (FILE**)calloc(em->num_models, sizeof(FILE*));
+    
+    for (i = 0; i < em->num_models; i++) {
+        cluster_name[8] = (i+48);
+        strcpy(path_buffer, path_head);
+        strcat(path_buffer,cluster_name);
+        fo[i] = fopen(path_buffer, "w");
+    }
+    
+    uint8_t *seq = em->qv_seqs->file_head;
+    
+    for (i = 0; i < em->num_seq; i++) {
+        cluster_id = em->clust->clusters[i];
+        for (t = 0; t < em->qv_seqs->read_length; t++) {
+            fputc((*seq)+33, fo[cluster_id]), seq++;
+        }
+        fputc('\n', fo[cluster_id]);
+        seq++;
+    }
+    
+    
+}
 
-uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, FILE *fgraph){
+// *******************************************************************************//
+
+uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, char *split_path){
     
     uint32_t i = 0, j = 0;
     
@@ -480,31 +369,18 @@ uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FI
     
     initialize_em_markov(em);
     
-    //fprintf(fo, "%d\n", em->num_models);
-    //fprintf(fo, "%d\n", iters);
-    
-    
-    while (i < iters){
-        //printf("Iteration: %d\n",i);
+    while (i++ < iters){
         e_step(em);
-        data_ll = m_step_boost(em);
-        printf("%f\n",data_ll);
-        //data_ll = compute_expected_ll(em);
-        compute_clusters(em);
-        //compute_model_entropy(em, 0);
-        //fprintf(fo,"%f\n", -data_ll/em->num_seq);
-        //for (j = 0; j < em->num_models; j++) {
-          //  fprintf(fo,"%d\n", em->clust->cluster_sizes[j]);
-        //}
-        //printf("%f\n",data_ll);
-        //printf("%d\n",i);
-        i ++;
+        data_ll = m_step(em);
+        printf("%03d: %f\n",i,data_ll);
     }
     
+    compute_clusters(em);
     for (j = 0; j < em->num_seq; j++) {
         fprintf(fo, "%d\n",em->clust->clusters[j]);
     }
     //print_graph(em, fgraph);
+    split_data(split_path, em);
     
     return 0;
     
