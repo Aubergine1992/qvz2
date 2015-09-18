@@ -168,8 +168,8 @@ int main(int argc, const char * argv[]) {
     //fgraph = fopen(argv[5], "w");
     
     //perform_bw_temporal(qv_f, K, num_iters, fo, argv[5]);
-    perform_bw(qv_f, K, num_iters, fo, argv[5]);
-    //perform_em_markov(qv_f, K, num_iters, fo, fgraph);
+    //perform_bw(qv_f, K, num_iters, fo, argv[5]);
+    perform_em_markov(qv_f, K, num_iters, fo, fgraph);
     
     return 0;
 }

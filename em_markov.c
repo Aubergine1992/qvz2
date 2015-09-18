@@ -236,6 +236,111 @@ void m_step(em_markov em){
     
 }
 
+// *******************************************************************************//
+
+double m_step_boost(em_markov em){
+    uint32_t seq_idx, model_idx, node_idx, dest_node_idx, t;
+    uint32_t i;
+    
+    double nll = 0;
+    
+    double temp_w,norm_cte = 0;
+    
+    double *rl;
+    uint8_t *qvs;
+    
+    double temp_pi[QV_ALPHABET] = {0};
+    
+    double **temp_Ajk;
+    temp_Ajk = (double**)calloc(em->models[0].num_nodes, sizeof(double*));
+    for (i = 0; i < em->models[0].num_nodes; i++) {
+        temp_Ajk[i] = (double*)calloc(em->models[0].num_nodes, sizeof(double));
+    }
+    
+    const uint32_t read_length = em->qv_seqs->read_length;
+    
+    for (model_idx = 0; model_idx < em->num_models; ++model_idx) {
+        
+        // Reset the accumulators to zero
+        temp_w = 0;
+        memset(temp_pi, 0, QV_ALPHABET*sizeof(double));
+        for (i = 0; i < em->models[model_idx].num_nodes; i++) {
+            memset(temp_Ajk[i],0,em->models[model_idx].num_nodes*sizeof(double));
+        }
+        // Set the pointers to the iterators
+        rl = em->r[model_idx];
+        qvs = em->qv_seqs->file_head;
+        
+        for (seq_idx = 0; seq_idx < em->num_seq; ++seq_idx){
+            
+            // Update the model prior
+            temp_w += *rl;
+            
+            // Update the models pi
+            temp_pi[*qvs] += *rl;
+            
+            // Update the models A
+            for (t = 0; t < read_length - 1; t++) {
+                temp_Ajk[*qvs][*(qvs+1)] += *rl;
+                qvs++;
+            }
+            
+            rl++;
+            qvs++;
+            qvs++; // TODO: remove. Necessary now because of the zero between sequences.
+        }
+        
+        // Compute the nll before normalizing
+        nll += temp_w*log(em->models_prior[model_idx]);
+        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes;node_idx++ ) {
+            if (em->models[model_idx].pi[node_idx] != 0) {
+                nll += temp_pi[node_idx]*log(em->models[model_idx].pi[node_idx]);
+            }
+           
+        }
+        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes;node_idx++ ) {
+            for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
+                if (em->models[model_idx].A[node_idx][dest_node_idx] != 0) {
+                    nll += temp_Ajk[node_idx][dest_node_idx]*log(em->models[model_idx].A[node_idx][dest_node_idx]);
+                }
+            }
+        }
+        // Normalize the model Prior
+        em->models_prior[model_idx] = temp_w/em->num_seq;
+        
+        // Normalize Pi wrt num_nodes
+        norm_cte = 0;
+        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes; node_idx++) {
+            em->models[model_idx].pi[node_idx] = temp_pi[node_idx];
+            norm_cte+=temp_pi[node_idx];
+        }
+        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes; node_idx++) {
+            em->models[model_idx].pi[node_idx] /= norm_cte;
+        }
+        assert(norm_cte!=0);
+        
+        // Normalize A wrt num_dest_nodes
+        // Note that here we allow for zero probability as we don't mind overfitting (for now...)
+        // This is quite dangerous...
+        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes; node_idx++) {
+            norm_cte = 0;
+            for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
+                
+                em->models[model_idx].A[node_idx][dest_node_idx] = temp_Ajk[node_idx][dest_node_idx];
+                norm_cte+=temp_Ajk[node_idx][dest_node_idx];
+            }
+            if (norm_cte != 0) {
+                for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
+                    em->models[model_idx].A[node_idx][dest_node_idx] /= norm_cte;
+                }
+            }
+            
+        }
+    }
+    return nll;
+}
+
+
 // ***************************************************************//
 //
 // ***************************************************************//
@@ -382,15 +487,17 @@ uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FI
     while (i < iters){
         //printf("Iteration: %d\n",i);
         e_step(em);
-        m_step(em);
-        data_ll = compute_expected_ll(em);
-        compute_clusters(em);
+        data_ll = m_step_boost(em);
+        printf("%f\n",data_ll);
+        //data_ll = compute_expected_ll(em);
+        //compute_clusters(em);
         //compute_model_entropy(em, 0);
         //fprintf(fo,"%f\n", -data_ll/em->num_seq);
         //for (j = 0; j < em->num_models; j++) {
           //  fprintf(fo,"%d\n", em->clust->cluster_sizes[j]);
         //}
         //printf("%f\n",data_ll);
+        //printf("%d\n",i);
         i ++;
     }
     
