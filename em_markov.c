@@ -69,7 +69,8 @@ void initialize_markov_model(markov_model mm){
     double s_A, s_pi = 0;
     
     for (i = 0; i < mm->num_nodes; ++i) {
-        mm->pi[i] = (double)rand();
+        //mm->pi[i] = (double)rand();
+        mm->pi[i] = 1.0/(double)mm->num_nodes;
         s_pi += mm->pi[i];
     }
     // Normalize
@@ -80,7 +81,7 @@ void initialize_markov_model(markov_model mm){
     for (i = 0; i < mm->num_nodes; ++i) {
         s_A = 0;
         for (j = 0; j < mm->num_nodes; j++) {
-            mm->A[i][j] = (double)rand();
+            mm->A[i][j] = (double)(rand()/(double)RAND_MAX);
             s_A += mm->A[i][j];
         }
         // Normalize
@@ -95,6 +96,12 @@ void initialize_markov_model(markov_model mm){
 
 void initialize_em_markov(em_markov em){
     
+    time_t  t;
+    
+    srand((unsigned) time(&t));
+    
+    //srand(1);
+    
     uint32_t model_idx;
     
     for (model_idx = 0; model_idx < em->num_models; model_idx++) {
@@ -104,7 +111,8 @@ void initialize_em_markov(em_markov em){
     double s_priors = 0;
     
     for (model_idx = 0; model_idx < em->num_models; model_idx++) {
-        em->models_prior[model_idx] = (double)rand();
+        //em->models_prior[model_idx] = (double)rand();
+        em->models_prior[model_idx] = 1.0/(double)em->num_models;
         s_priors += em->models_prior[model_idx];
     }
     for (model_idx = 0; model_idx < em->num_models; model_idx++) {
@@ -119,7 +127,7 @@ void initialize_em_markov(em_markov em){
 void e_step(em_markov em){
     
     uint32_t model_idx, seq_idx, t, xt0, xt1, T;
-    double norm_cte = 0, r = 1;
+    double norm_cte = 0, r = 1, log_trans_prob;
     double **A;
     double *pi;
     
@@ -137,17 +145,18 @@ void e_step(em_markov em){
             
             xt0 = *(x_ptr), x_ptr++;
             r = em->models_prior[model_idx]*pi[xt0];
+            log_trans_prob = 0.0;
             for (t = 1; t < T; ++t) {
                 xt1 = *(x_ptr);
-                r *= A[xt0][xt1];
+                log_trans_prob += log(A[xt0][xt1]);
                 xt0 = xt1;
                 x_ptr++;
             }
             x_ptr++; // TODO: remove. Necessary now because of the zero between sequences.
-            em->r[model_idx][seq_idx] = r;
-            norm_cte += r;
+            em->r[model_idx][seq_idx] = r*exp(log_trans_prob);
+            norm_cte += em->r[model_idx][seq_idx];
         }
-        assert(norm_cte!=0);
+        assert(norm_cte!=0.0);
         // Normalize r wrt num_models
         for (model_idx = 0; model_idx < em->num_models; model_idx++){
             em->r[model_idx][seq_idx] /= norm_cte;
@@ -162,6 +171,7 @@ void e_step(em_markov em){
 // *******************************************************************************//
 
 double m_step(em_markov em){
+    static double prev_nll = 0;
     uint32_t seq_idx, model_idx, node_idx, dest_node_idx, t;
     uint32_t i;
     
@@ -186,7 +196,7 @@ double m_step(em_markov em){
         
         // Reset the accumulators to zero
         temp_w = 0;
-        memset(temp_pi, 0, QV_ALPHABET*sizeof(double));
+        memset(temp_pi, 0, em->models[model_idx].num_nodes*sizeof(double));
         for (i = 0; i < em->models[model_idx].num_nodes; i++) {
             memset(temp_Ajk[i],0,em->models[model_idx].num_nodes*sizeof(double));
         }
@@ -219,7 +229,6 @@ double m_step(em_markov em){
             if (em->models[model_idx].pi[node_idx] != 0) {
                 nll += temp_pi[node_idx]*log(em->models[model_idx].pi[node_idx]);
             }
-           
         }
         for (node_idx = 0; node_idx < em->models[model_idx].num_nodes;node_idx++ ) {
             for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
@@ -228,6 +237,7 @@ double m_step(em_markov em){
                 }
             }
         }
+        
         // Normalize the model Prior
         em->models_prior[model_idx] = temp_w/em->num_seq;
         
@@ -260,6 +270,12 @@ double m_step(em_markov em){
             
         }
     }
+    
+    //if (nll < prev_nll) {
+      //  ;
+        //printf("asdf/n");
+    //}
+    prev_nll = nll;
     
     for (i = 0; i < em->models[0].num_nodes; i++) {
         free(temp_Ajk[i]);
@@ -327,7 +343,7 @@ void print_graph(em_markov m, FILE * graph_file){
 }
 
 // *******************************************************************************//
-void split_data(char* path_head, em_markov em){
+void split_data(const char* path_head, em_markov em){
     uint32_t i = 0, cluster_id, t;
     FILE **fo;
     char path_buffer[1024];
@@ -359,7 +375,7 @@ void split_data(char* path_head, em_markov em){
 
 // *******************************************************************************//
 
-uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, char *split_path){
+uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, const char *split_path){
     
     uint32_t i = 0, j = 0;
     

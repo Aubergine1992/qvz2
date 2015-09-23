@@ -18,6 +18,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdint.h>
+#include <time.h>
 
 //#define log2(a) log(a)/log(2.0)
 

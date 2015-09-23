@@ -45,7 +45,7 @@ double compute_expected_ll(em_markov em);
 void compute_clusters(em_markov em);
 void print_graph(em_markov m, FILE * graph_file);
 
-uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, char *split_path);
+uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, const char *split_path);
 
 #endif /* defined(__markov_clustering__em_markov__) */
 
