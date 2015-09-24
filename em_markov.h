@@ -27,24 +27,6 @@ typedef struct em_markov_t{
     clusters clust;
 }*em_markov;
 
-
-
-// ******************************************************************//
-
-void alloc_markov_model(markov_model mm);
-void initialize_markov_model(markov_model mm);
-
-em_markov alloc_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq);
-void initialize_em_markov(em_markov em);
-
-
-double m_step(em_markov em);
-void e_step(em_markov em);
-double compute_expected_ll(em_markov em);
-
-void compute_clusters(em_markov em);
-void print_graph(em_markov m, FILE * graph_file);
-
 uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, const char *split_path);
 
 #endif /* defined(__markov_clustering__em_markov__) */

@@ -40,6 +40,10 @@ typedef struct qv_file_t{
 typedef struct clusters_t{
     uint32_t* clusters;
     uint32_t* cluster_sizes;
+    uint32_t num_clusters;
 }*clusters;
+
+void split_data(const char* path_head, clusters clust, qv_file  qv_seqs);
+void compute_clusters(clusters clust, double ** r, uint64_t num_seq);
 
 #endif

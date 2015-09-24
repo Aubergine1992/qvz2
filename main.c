@@ -7,77 +7,10 @@
 //
 
 #include "em_markov.h"
+#include "em_markov_temporal.h"
 #include "hmm.h"
 
-void compute_model_entropy(em_markov em, uint32_t num_model){
-    
-    
-    int i = 0, j = 0, num_ctx = 1, l = 0, col_idx = 0, seq_idx = 0;
-    double p = 0;
-    int ctx = 0;
-    long long unsigned int counts = 0;
-    uint8_t *qv_ptr;
-    
-    int N_CTX = em->models[num_model].num_nodes;
-    //      printf("%d\n",N_CTX);
-    long long unsigned int **P = (long long unsigned int**) calloc(N_CTX, sizeof(long long unsigned int*));
-    
-    for(i = 0; i < N_CTX; ++i)
-        P[i] = (long long unsigned int*)calloc(em->models->num_nodes+1, sizeof(long long unsigned int));
-    
-    double *H = (double*) calloc(N_CTX, sizeof(double));
-    
-    
-    //      printf("Computing the Probability Distribution\n");
-    qv_ptr = em->qv_seqs->file_head;
-    
-    for(seq_idx = 0; seq_idx < em->num_seq; ++seq_idx){
-        
-        if (em->clust->clusters[seq_idx] == num_model) {
-            
-            //              printf("N: %d\n", N);
-            for(col_idx = 0; col_idx < em->qv_seqs->read_length; ++col_idx){
-                //                      printf("qv(%d) %d\n",col, qv);
-                i = 0;
-                for(j = 1; j <= num_ctx; j++){
-                    ctx = col_idx - j < 0 ? 0:*(qv_ptr - j);
-                    //                              printf("ctx %d\n", ctx);
-                    i += ((ctx & 0xff) << (8*l));
-                    //                              printf("i %d\n", i);
-                }
-                //                      printf("%d %d\n", i, qv);
-                P[i][*qv_ptr]++;
-                ++P[i][em->models->num_nodes+1];
-                qv_ptr++;
-            }
-            qv_ptr++;// TODO: remove. Necessary now because of the zero between sequences.
-            
-        }
-        else{
-            qv_ptr += em->qv_seqs->read_length;
-            qv_ptr++;// TODO: remove. Necessary now because of the zero between sequences.
-        }
-        
-    }
-    
-    for(i = 0; i < N_CTX; ++i){
-        for(j = 0; j < em->models->num_nodes; ++j){
-            if( (counts = P[i][j]) == 0)
-                continue;
-            if (P[i][em->models->num_nodes+1] <=0)
-                printf("counts is less than 0 in context: %d\n", i);
-            
-            p = (double)counts/(double)P[i][em->models->num_nodes+1];
-            if(p <= 0)
-                printf("fooooo %d %d %llu %llu\n", i, j, P[i][42], counts);
-            H[N_CTX] += -(counts*log2(p));
-        }
-    }
-    
-    printf("Size(%d) = %f Bits\n", num_ctx, H[0]);
-    printf("Size(%d) = %f MB\n", num_ctx, (double)H[0]/8.0/1000000.0);
 
-}
 
 qv_file load_file(const char *path, uint64_t max_lines){
     
@@ -142,9 +75,65 @@ qv_file load_file(const char *path, uint64_t max_lines){
     
 }
 
+// *******************************************************************************//
+void split_data(const char* path_head, clusters clust, qv_file  qv_seqs){
+    uint32_t i = 0, cluster_id, t;
+    FILE **fo;
+    char path_buffer[1024];
+    char cluster_name[256] = "/cluster";
+    
+    
+    fo = (FILE**)calloc(clust->num_clusters, sizeof(FILE*));
+    
+    for (i = 0; i < clust->num_clusters; i++) {
+        cluster_name[8] = (i+48);
+        strcpy(path_buffer, path_head);
+        strcat(path_buffer,cluster_name);
+        fo[i] = fopen(path_buffer, "w");
+    }
+    
+    uint8_t *seq = qv_seqs->file_head;
+    
+    for (i = 0; i < qv_seqs->lines; i++) {
+        cluster_id = clust->clusters[i];
+        for (t = 0; t < qv_seqs->read_length; t++) {
+            fputc((*seq)+33, fo[cluster_id]), seq++;
+        }
+        fputc('\n', fo[cluster_id]);
+        seq++;
+    }
+    
+    
+}
+
+// *******************************************************************************//
+
+void compute_clusters(clusters clust, double ** r, uint64_t num_seq){
+    
+    uint32_t seq_idx, i = 0, tmp_model;
+    
+    double tmp = 0;
+    
+    for (i = 0; i < clust->num_clusters; i++) {
+        clust->cluster_sizes[i] = 0;
+    }
+    
+    for (seq_idx = 0; seq_idx < num_seq; seq_idx++) {
+        tmp = 0;
+        tmp_model = 0;
+        for (i = 0; i < clust->num_clusters; i++) {
+            if (r[i][seq_idx] >= tmp) {
+                tmp = r[i][seq_idx];
+                tmp_model = i;
+            }
+        }
+        clust->cluster_sizes[tmp_model]++;
+        clust->clusters[seq_idx] = tmp_model;
+    }
+}
 
 
-
+// *******************************************************************************//
 
 int main(int argc, const char * argv[]) {
     
@@ -165,7 +154,8 @@ int main(int argc, const char * argv[]) {
     
     //perform_bw_temporal(qv_f, K, num_iters, fo, argv[5]);
     //perform_bw(qv_f, K, num_iters, fo, argv[5]);
-    perform_em_markov(qv_f, K, num_iters, fo, argv[5]);
+    //perform_em_markov(qv_f, K, num_iters, fo, argv[5]);
+    perform_em_temporal_markov(qv_f, K, num_iters, fo, argv[5]);
     
     return 0;
 }

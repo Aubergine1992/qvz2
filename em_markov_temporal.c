@@ -1,25 +1,31 @@
 //
-//  em_markov.c
+//  em_markov_temporal.c
 //  markov_clustering
 //
-//  Created by Mikel Hernaez-Arrazola on 8/27/15.
-//  Copyright (c) 2015 Mikel Hernaez. All rights reserved.
+//  Created by Mikel Hernaez-Arrazola on 9/24/15.
+//  Copyright © 2015 Mikel Hernaez. All rights reserved.
 //
 
-#include "em_markov.h"
+#include "em_markov_temporal.h"
 
 
 // *******************************************************************************//
 
-void alloc_markov_model(markov_model mm){
+void alloc_markov_temporal_model(markov_temporal_model mm, uint32_t seq_length){
     
-    uint32_t i = 0;
+    uint32_t i = 0, t = 0;
     
     mm->num_nodes = QV_ALPHABET;
     
-    mm->A = (double**)calloc(mm->num_nodes, sizeof(double*));
-    for (i = 0; i < mm->num_nodes; i++) {
-        mm->A[i] = (double*)calloc(mm->num_nodes, sizeof(double));
+    mm->num_ts = seq_length;
+    
+    mm->A = (double***)calloc(mm->num_ts, sizeof(double*));
+    for (t = 0; t < mm->num_ts; t++) {
+        mm->A[t] = (double**)calloc(mm->num_nodes, sizeof(double*));
+        for (i = 0; i < mm->num_nodes; i++) {
+            mm->A[t][i] = (double*)calloc(mm->num_nodes, sizeof(double));
+        }
+        
     }
     
     mm->pi = (double*)calloc(mm->num_nodes, sizeof(double));
@@ -28,11 +34,11 @@ void alloc_markov_model(markov_model mm){
 
 // *******************************************************************************//
 
-em_markov alloc_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq){
+em_temporal_markov alloc_temporal_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq){
     
     uint32_t i = 0;
     
-    em_markov EM = (struct em_markov_t*)calloc(1, sizeof(struct em_markov_t));
+    em_temporal_markov EM = (struct em_temporal_markov_t*)calloc(1, sizeof(struct em_temporal_markov_t));
     
     EM->num_models = num_models;
     
@@ -48,9 +54,9 @@ em_markov alloc_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq){
     
     EM->clust->num_clusters = num_models;
     
-    EM->models = (struct markov_model_t*)calloc(num_models, sizeof(struct markov_model_t));
+    EM->models = (struct markov_temporal_model_t*)calloc(num_models, sizeof(struct markov_temporal_model_t));
     for (i = 0; i<num_models; i++) {
-        alloc_markov_model(&(EM->models[i]));
+        alloc_markov_temporal_model(&(EM->models[i]),qv_seqs->read_length);
     }
     
     EM->models_prior = (double*)calloc(num_models, sizeof(double));
@@ -65,9 +71,9 @@ em_markov alloc_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq){
 
 // *******************************************************************************//
 
-void initialize_markov_model(markov_model mm){
+void initialize_markov_temporal_model(markov_temporal_model mm){
     
-    uint32_t i = 0, j = 0;
+    uint32_t i = 0, j = 0, t = 0;
     double s_A, s_pi = 0;
     
     for (i = 0; i < mm->num_nodes; ++i) {
@@ -79,16 +85,17 @@ void initialize_markov_model(markov_model mm){
     for (i = 0; i < mm->num_nodes; ++i) {
         mm->pi[i] /= s_pi;
     }
-    
-    for (i = 0; i < mm->num_nodes; ++i) {
-        s_A = 0;
-        for (j = 0; j < mm->num_nodes; j++) {
-            mm->A[i][j] = (double)(rand()/(double)RAND_MAX);
-            s_A += mm->A[i][j];
-        }
-        // Normalize
-        for (j = 0; j < mm->num_nodes; j++) {
-            mm->A[i][j] /= s_A;
+    for (t = 0; t < mm->num_ts-1; t++) {
+        for (i = 0; i < mm->num_nodes; ++i) {
+            s_A = 0;
+            for (j = 0; j < mm->num_nodes; j++) {
+                mm->A[t][i][j] = (double)(rand()/(double)RAND_MAX);
+                s_A += mm->A[t][i][j];
+            }
+            // Normalize
+            for (j = 0; j < mm->num_nodes; j++) {
+                mm->A[t][i][j] /= s_A;
+            }
         }
     }
     
@@ -96,7 +103,7 @@ void initialize_markov_model(markov_model mm){
 
 // *******************************************************************************//
 
-void initialize_em_markov(em_markov em){
+void initialize_em_temporal_markov(em_temporal_markov em){
     
     time_t  t;
     
@@ -107,7 +114,7 @@ void initialize_em_markov(em_markov em){
     uint32_t model_idx;
     
     for (model_idx = 0; model_idx < em->num_models; model_idx++) {
-        initialize_markov_model(&(em->models[model_idx]));
+        initialize_markov_temporal_model(&(em->models[model_idx]));
     }
     
     double s_priors = 0;
@@ -126,11 +133,11 @@ void initialize_em_markov(em_markov em){
 //
 // *******************************************************************************//
 
-void e_step(em_markov em){
+void temporal_e_step(em_temporal_markov em){
     
-    uint32_t model_idx, seq_idx, t, xt0, xt1, T, x0;;
+    uint32_t model_idx, seq_idx, t, xt0, xt1, T, x0;
     double norm_cte = 0, trans_prob;
-    double **A;
+    double ***A;
     double *pi;
     
     uint8_t *x_head = em->qv_seqs->file_head, *x_ptr;
@@ -150,7 +157,7 @@ void e_step(em_markov em){
             trans_prob = 1.0;
             for (t = 1; t < T; ++t) {
                 xt1 = *(x_ptr);
-                trans_prob *= A[xt0][xt1];
+                trans_prob *= A[t-1][xt0][xt1];
                 xt0 = xt1;
                 x_ptr++;
             }
@@ -172,7 +179,7 @@ void e_step(em_markov em){
 
 // *******************************************************************************//
 
-double m_step(em_markov em){
+double temporal_m_step(em_temporal_markov em){
     static double prev_nll = 0;
     uint32_t seq_idx, model_idx, node_idx, dest_node_idx, t;
     uint32_t i;
@@ -186,21 +193,29 @@ double m_step(em_markov em){
     
     double temp_pi[QV_ALPHABET] = {0};
     
-    double **temp_Ajk;
-    temp_Ajk = (double**)calloc(em->models[0].num_nodes, sizeof(double*));
-    for (i = 0; i < em->models[0].num_nodes; i++) {
-        temp_Ajk[i] = (double*)calloc(em->models[0].num_nodes, sizeof(double));
+    const uint32_t read_length = em->qv_seqs->read_length;
+    
+    double ***temp_A;
+    temp_A = (double***)calloc(read_length, sizeof(double**));
+    for (t = 0; t < read_length; t++) {
+        temp_A[t] = (double**)calloc(em->models[0].num_nodes, sizeof(double*));
+        for (i = 0; i < em->models[0].num_nodes; i++) {
+            temp_A[t][i] = (double*)calloc(em->models[0].num_nodes, sizeof(double));
+        }
     }
     
-    const uint32_t read_length = em->qv_seqs->read_length;
+    
     
     for (model_idx = 0; model_idx < em->num_models; ++model_idx) {
         
         // Reset the accumulators to zero
         temp_w = 0;
         memset(temp_pi, 0, em->models[model_idx].num_nodes*sizeof(double));
-        for (i = 0; i < em->models[model_idx].num_nodes; i++) {
-            memset(temp_Ajk[i],0,em->models[model_idx].num_nodes*sizeof(double));
+        for (t = 0; t < read_length; t++) {
+            for (i = 0; i < em->models[0].num_nodes; i++) {
+                memset(temp_A[t][i],0,em->models[0].num_nodes*sizeof(double));
+            }
+            
         }
         // Set the pointers to the iterators
         rl = em->r[model_idx];
@@ -216,7 +231,7 @@ double m_step(em_markov em){
             
             // Update the models A
             for (t = 0; t < read_length - 1; t++) {
-                temp_Ajk[*qvs][*(qvs+1)] += *rl;
+                temp_A[t][*qvs][*(qvs+1)] += *rl;
                 qvs++;
             }
             
@@ -232,10 +247,12 @@ double m_step(em_markov em){
                 nll += temp_pi[node_idx]*log(em->models[model_idx].pi[node_idx]);
             }
         }
-        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes;node_idx++ ) {
-            for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
-                if (em->models[model_idx].A[node_idx][dest_node_idx] != 0) {
-                    nll += temp_Ajk[node_idx][dest_node_idx]*log(em->models[model_idx].A[node_idx][dest_node_idx]);
+        for (t = 0; t < read_length-1; t++) {
+            for (node_idx = 0; node_idx < em->models[model_idx].num_nodes;node_idx++ ) {
+                for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
+                    if (em->models[model_idx].A[t][node_idx][dest_node_idx] != 0) {
+                        nll += temp_A[t][node_idx][dest_node_idx]*log(em->models[model_idx].A[t][node_idx][dest_node_idx]);
+                    }
                 }
             }
         }
@@ -257,85 +274,54 @@ double m_step(em_markov em){
         // Normalize A wrt num_dest_nodes
         // Note that here we allow for zero probability as we don't mind overfitting (for now...)
         // This is quite dangerous...
-        for (node_idx = 0; node_idx < em->models[model_idx].num_nodes; node_idx++) {
-            norm_cte = 0;
-            for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
-                
-                em->models[model_idx].A[node_idx][dest_node_idx] = temp_Ajk[node_idx][dest_node_idx];
-                norm_cte+=temp_Ajk[node_idx][dest_node_idx];
-            }
-            if (norm_cte != 0) {
+        for (t = 0; t < read_length; t++) {
+            for (node_idx = 0; node_idx < em->models[model_idx].num_nodes; node_idx++) {
+                norm_cte = 0;
                 for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
-                    em->models[model_idx].A[node_idx][dest_node_idx] /= norm_cte;
+                
+                    em->models[model_idx].A[t][node_idx][dest_node_idx] = temp_A[t][node_idx][dest_node_idx];
+                    norm_cte+=temp_A[t][node_idx][dest_node_idx];
                 }
-            }
+                if (norm_cte != 0) {
+                    for (dest_node_idx = 0; dest_node_idx < em->models[model_idx].num_nodes; dest_node_idx++) {
+                        em->models[model_idx].A[t][node_idx][dest_node_idx] /= norm_cte;
+                    }
+                }
             
+            }
         }
     }
     
     //if (nll < prev_nll) {
-      //  ;
-        //printf("asdf/n");
+    //  ;
+    //printf("asdf/n");
     //}
     prev_nll = nll;
-    
-    for (i = 0; i < em->models[0].num_nodes; i++) {
-        free(temp_Ajk[i]);
+    for (t = 0; t < read_length; t++) {
+        for (i = 0; i < em->models[0].num_nodes; i++) {
+            free(temp_A[t][i]);
+        }
+        free(temp_A[t]);
     }
-    free(temp_Ajk);
+    free(temp_A);
     return nll;
 }
 
 // *******************************************************************************//
 
-void print_graph(em_markov m, FILE * graph_file){
-    uint32_t i = 0, j = 0, k = 0;
-    
-    fprintf(graph_file, "digraph {\n");
-    
-    for (i = 0; i < m->models->num_nodes; i++) {
-        fprintf(graph_file, "%d\n",i);
-    }
-    
-    char tmp_char[512] = "";
-    char edge_color[256] = "%d->%d[label=%.3f color=";
-    
-    char color[256][12] = {"red","blue","green"};
-    
-    for (k = 0; k < m->num_models; k++) {
-        for (i = 0; i < m->models[k].num_nodes; i++) {
-            for (j = 0; j < m->models[k].num_nodes; j++) {
-                if (m->models[k].A[i][j] > 0.1) {
-                    strcpy(tmp_char, edge_color);
-                    strcat(tmp_char,color[k]);
-                    strcat(tmp_char,"]\n");
-                    fprintf(graph_file,tmp_char,i,j,m->models[k].A[i][j]);
-                    *tmp_char = 0;
-                }
-            }
-        }
-    }
-    
-    fprintf(graph_file, "}\n");
-}
-
-
-
-// *******************************************************************************//
-
-uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, const char *split_path){
+uint32_t perform_em_temporal_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, const char *split_path){
     
     uint32_t i = 0, j = 0;
     
     double data_ll;
     
-    em_markov em = alloc_em(qv_f,num_models, qv_f->lines);
+    em_temporal_markov em = alloc_temporal_em(qv_f,num_models, qv_f->lines);
     
-    initialize_em_markov(em);
+    initialize_em_temporal_markov(em);
     
     while (i++ < iters){
-        e_step(em);
-        data_ll = m_step(em);
+        temporal_e_step(em);
+        data_ll = temporal_m_step(em);
         printf("%03d: %f\n",i,data_ll);
     }
     
@@ -343,8 +329,7 @@ uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FI
     for (j = 0; j < em->num_seq; j++) {
         fprintf(fo, "%d\n",em->clust->clusters[j]);
     }
-    //print_graph(em, fgraph);
-    split_data(split_path, em->clust,em->qv_seqs);
+    split_data(split_path, em->clust, em->qv_seqs);
     
     return 0;
     
