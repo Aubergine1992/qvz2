@@ -9,8 +9,8 @@
 #ifndef em_markov_temporal_h
 #define em_markov_temporal_h
 
-#include "markov_clustering.h"
 #include "em_markov.h"
+#include "qv_file.h"
 
 typedef struct markov_temporal_model_t{
     double ***A;
@@ -26,7 +26,6 @@ typedef struct em_temporal_markov_t{
     uint32_t num_models;
     uint64_t num_seq;
     qv_file qv_seqs;
-    clusters clust;
 }*em_temporal_markov;
 
 

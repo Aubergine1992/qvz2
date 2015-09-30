@@ -161,7 +161,7 @@ void temporal_e_step(em_temporal_markov em){
                 xt0 = xt1;
                 x_ptr++;
             }
-            x_ptr++; // TODO: remove. Necessary now because of the zero between sequences.
+            x_ptr++; // Necessary now because of the zero between sequences.
             em->r[model_idx][seq_idx] = em->models_prior[model_idx]*pi[x0]*trans_prob;
             norm_cte += em->r[model_idx][seq_idx];
         }
@@ -172,7 +172,7 @@ void temporal_e_step(em_temporal_markov em){
         }
         norm_cte = 0;
         x_head += T;
-        x_head++; // TODO: remove. Necessary now because of the zero between sequences.
+        x_head++; // Necessary now because of the zero between sequences.
         
     }
 }
@@ -311,7 +311,7 @@ double temporal_m_step(em_temporal_markov em){
 
 uint32_t perform_em_temporal_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, const char *split_path){
     
-    uint32_t i = 0, j = 0;
+    uint32_t i = 0;
     
     double data_ll;
     
@@ -326,10 +326,6 @@ uint32_t perform_em_temporal_markov(qv_file qv_f, uint32_t num_models, uint32_t 
     }
     
     compute_clusters(em->clust, em->r, em->num_seq);
-    for (j = 0; j < em->num_seq; j++) {
-        fprintf(fo, "%d\n",em->clust->clusters[j]);
-    }
-    split_data(split_path, em->clust, em->qv_seqs);
     
     return 0;
     

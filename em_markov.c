@@ -339,10 +339,10 @@ uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FI
         printf("%03d: %f\n",i,data_ll);
     }
     
-    compute_clusters(em->clust, em->r, em->num_seq);
-    for (j = 0; j < em->num_seq; j++) {
-        fprintf(fo, "%d\n",em->clust->clusters[j]);
-    }
+    //compute_clusters(em->clust, em->r, em->num_seq);
+    //for (j = 0; j < em->num_seq; j++) {
+        //fprintf(fo, "%d\n",em->clust->clusters[j]);
+    //}
     //print_graph(em, fgraph);
     split_data(split_path, em->clust,em->qv_seqs);
     

@@ -9,71 +9,12 @@
 #include "em_markov.h"
 #include "em_markov_temporal.h"
 #include "hmm.h"
+#include "codebook.h"
+#include "cluster.h"
 
 
 
-qv_file load_file(const char *path, uint64_t max_lines){
-    
-    uint32_t line_idx;
-    int ch;
-    char line[READ_LINEBUF_LENGTH];
-    FILE *fp;
-    struct stat finfo;
-    uint8_t* current_qv;
-    
-    qv_file my_qv_file = (struct qv_file_t*)malloc(sizeof(struct qv_file_t));
-    
-    //printf("%s\n", path);
-    
-    // Open the file
-    fp = fopen(path, "rt");
-    if (!fp) {
-        return NULL;
-    }
-    
-    
-    
-    // Use the first line to figure out the read length
-    fgets(line, READ_LINEBUF_LENGTH, fp);
-    my_qv_file->read_length = (uint32_t)strlen(line) - 1;
-    if (my_qv_file->read_length > MAX_READS_PER_LINE) {
-        fclose(fp);
-        return NULL;
-    }
-    
-    rewind(fp);
-    
-    // Figure out how many lines we'll need depending on whether we were limited or not
-    stat(path, &finfo);
-    my_qv_file->lines = finfo.st_size / ((uint64_t) (my_qv_file->read_length+1));
-    if (max_lines > 0 && my_qv_file->lines > max_lines) {
-        my_qv_file->lines = max_lines;
-    }
-    
-    // Right now we put a zero between sequences. This helps for the debbuging but it is not necessary and
-    // is a waste of memory (not much, though).
-    my_qv_file->file_head = (uint8_t*)calloc(my_qv_file->lines*(my_qv_file->read_length+1), sizeof(uint8_t));
-    if (my_qv_file->file_head == NULL)
-        return NULL;
-    
-    current_qv = my_qv_file->file_head;
-    line_idx = 0;
-    while (line_idx < my_qv_file->lines ) {
-        while ((ch = getc(fp)) != '\n') {
-            *current_qv = qv2ch(ch);
-            current_qv++;
-        }
-        line_idx++;
-        current_qv++;// TODO: remove. This introduce a zero after the sequence
-    }
-    
-    
-    
-    fclose(fp);
-    
-    return my_qv_file;
-    
-}
+
 
 // *******************************************************************************//
 void split_data(const char* path_head, clusters clust, qv_file  qv_seqs){
@@ -137,14 +78,24 @@ void compute_clusters(clusters clust, double ** r, uint64_t num_seq){
 
 int main(int argc, const char * argv[]) {
     
-    
+    uint32_t status;
     const char* path;
     
     FILE *fo;
     
     path = argv[1];
     
+    struct quality_file_t qv_info;
+    
+    // Load input file all at once
     qv_file qv_f = load_file(path, -1);
+    status = generate_qv_struct(qv_f, &qv_info, 0);
+    if (status != LF_ERROR_NONE) {
+        printf("load_file returned error: %d\n", status);
+        exit(1);
+    }
+    
+    
     
     fo = fopen(argv[2], "w");
     
