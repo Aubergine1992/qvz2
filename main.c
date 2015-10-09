@@ -210,7 +210,7 @@ int main(int argc, const char * argv[]) {
     opts.distortion = DISTORTION_MSE;
     opts.cluster_threshold = 4;
     opts.mode = 1;
-    opts.D = atoi(argv[5]);
+    opts.D = atof(argv[5]);
     //////////////////////////////////////
     
     // Load input file all at once
