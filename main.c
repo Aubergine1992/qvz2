@@ -206,7 +206,7 @@ int main(int argc, const char * argv[]) {
     opts.clusters = atoi(argv[3]);
     opts.num_iters = atoi(argv[4]);
     opts.uncompressed = 1;
-    opts.uncompressed_name = "/Users/mikelhernaez/data/qvz2.uncomp";
+    opts.uncompressed_name = argv[6];
     opts.distortion = DISTORTION_MSE;
     opts.cluster_threshold = 4;
     opts.mode = 1;
