@@ -75,7 +75,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 
     // OLD VERSION
 	// Initial bounds and reconstruction points
-    /*
+    
 	bounds[0] = 0;
 	bounds[states] = pmf->alphabet->size;
 	for (j = 1; j < states; ++j) {
@@ -84,11 +84,11 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 	for (j = 0; j < states; ++j) {
 		reconstruction[j] = (bounds[j] + bounds[j+1] - 1) / 2;
 	}
-    */
+    
     size = pmf->alphabet->size;
     
     // NEW FOR VERSION 2
-    
+    /*
     // This is a k-means algorithm, thus initialization is very important.
     // We are setting the initial points to those with the largest mass.
     // First we sort the and keep track of the indexes
@@ -134,7 +134,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
     for (j = 0; j <= states; ++j) {
         assert(bounds[j] <= 42);
     }
-    
+    */
 	// Lloyd-Max quantizer design alternating between adjustment of bounds
 	// and of reconstruction point locations until there is no change
 	while (changed && iter < QUANTIZER_MAX_ITER) {
