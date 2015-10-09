@@ -1,9 +1,40 @@
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "quantizer.h"
 #include "util.h"
 
+/**
+ *
+ */
+int compare_ptr_double (const void * a, const void * b)
+{
+    double ** v1 = (double**)a;
+    double ** v2 = (double**)b;
+    if (**v2 > **v1)
+        return 1;
+    else if (**v1 > **v2)
+        return -1;
+    else
+        return 0;
+    //return (int)( **v2 - **v1 );
+}
+/**
+ *
+ */
+int compare_int (const void * a, const void * b)
+{
+    symbol_t* v1 = (symbol_t*)a;
+    symbol_t* v2 = (symbol_t*)b;
+    if (*v2 > *v1)
+        return -1;
+    else if (*v1 > *v2)
+        return 1;
+    else
+        return 0;
+    //return (int)( **v2 - **v1 );
+}
 /**
  * Allocate enough room based on the size of the alphabet supplied
  */
@@ -42,7 +73,9 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 	symbol_t *bounds = (symbol_t *) _alloca((states+1)*sizeof(symbol_t));
 	symbol_t *reconstruction = (symbol_t *) _alloca(states*sizeof(symbol_t));
 
+    // OLD VERSION
 	// Initial bounds and reconstruction points
+    /*
 	bounds[0] = 0;
 	bounds[states] = pmf->alphabet->size;
 	for (j = 1; j < states; ++j) {
@@ -51,10 +84,59 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 	for (j = 0; j < states; ++j) {
 		reconstruction[j] = (bounds[j] + bounds[j+1] - 1) / 2;
 	}
-
+    */
+    
+    size = pmf->alphabet->size;
+    // NEW FOR VERSION 2
+    
+    // This is a k-means algorithm, thus initialization is very important.
+    // We are setting the initial points to those with the largest mass.
+    // First we sort the and keep track of the indexes
+    
+    // Create a pointer array to the pmfs
+    double** pmf_ptr = (double**)_alloca(size*sizeof(double*));
+    //double *pmf_ptr[42];
+    for (i = 0; i < size; i++) {
+        pmf_ptr[i] = &(pmf->pmf[i]);
+    }
+    // Sort the pointer array. The index of the sorted values are (pmf_ptr[i] - pmf->pmf)
+    qsort(pmf_ptr, size, sizeof(*pmf_ptr), compare_ptr_double);
+    // Assign a reconstruction point to the most probable symbols
+    for (j = 0; j < states; ++j) {
+        reconstruction[j] = pmf_ptr[j] - pmf->pmf;
+        //reconstruction[j] = j;
+    }
+    // Sort again the reconstruction vector.
+    qsort(reconstruction, states, sizeof(*reconstruction), compare_int);
+    //free(pmf_ptr);
+    // Then, adjust the bounds for fixed reconstruction points by iterating
+    // over the positions (apart from the endpoints which always have a fixed
+    // assignment) and deciding which of the two nearest points they
+    // contribute the least expected distortion to
+    bounds[0] = 0;
+    bounds[states] = size;
+    r = 0;
+    for (j = 0; j < size && r < states-1; ++j) {
+        // Get distortion for the current and next reconstruction points
+        // I don't think the PMF actually affects this since it is the same
+        // coefficient for both and we are comparing them
+        mse = get_distortion(dist, j, reconstruction[r]);
+        next_mse = get_distortion(dist, j, reconstruction[r+1]);
+        
+        // if the next one is lower, save the current symbol as the left bound
+        // for that region
+        if (next_mse < mse) {
+            r += 1;
+            bounds[r] = j;
+            assert(bounds[r] < 42);
+        }
+    }
+    for (j = 0; j <= states; ++j) {
+        assert(bounds[j] <= 42);
+    }
+    
 	// Lloyd-Max quantizer design alternating between adjustment of bounds
 	// and of reconstruction point locations until there is no change
-	size = pmf->alphabet->size;
 	while (changed && iter < QUANTIZER_MAX_ITER) {
 		changed = 0;
 		iter += 1;
@@ -64,7 +146,8 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 			// Initial guess for min values
 			min_mse = DBL_MAX;
 			min_r = bounds[j];
-			
+            assert(bounds[j] < 42);
+            assert(bounds[j+1] <= 42);
 			// For each possible reconstruction point
 			for (r = bounds[j]; r < bounds[j+1]; ++r) {
 				// Find its distortion when used for the whole region
@@ -85,6 +168,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 				changed = 1;
 				reconstruction[j] = min_r;
 			}
+            assert(reconstruction[j] < 42);
 		}
 
 		// Then, adjust the bounds for fixed reconstruction points by iterating
@@ -92,7 +176,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 		// assignment) and deciding which of the two nearest points they
 		// contribute the least expected distortion to
 		r = 0;
-		for (j = 1; j < size-1 && r < states-1; ++j) {
+		for (j = 1; j < size && r < states-1; ++j) {
 			// Get distortion for the current and next reconstruction points
 			// I don't think the PMF actually affects this since it is the same
 			// coefficient for both and we are comparing them

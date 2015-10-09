@@ -33,6 +33,6 @@ typedef struct em_temporal_markov_t{
 // ******************************************************************//
 
 
-uint32_t perform_em_temporal_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, const char *split_path);
+double** perform_em_temporal_markov(qv_file qv_f, uint32_t num_models, uint32_t iters);
 
 #endif /* em_markov_temporal_h */

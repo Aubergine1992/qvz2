@@ -187,6 +187,10 @@ void free_blocks(struct quality_file_t *info) {
     free(info->blocks);
 }
 
+/**
+ * File allocation for the mixtures
+ */
+
 qv_file load_file(const char *path, uint64_t max_lines){
     
     uint32_t line_idx;
@@ -197,6 +201,8 @@ qv_file load_file(const char *path, uint64_t max_lines){
     uint8_t* current_qv;
     
     qv_file my_qv_file = (struct qv_file_t*)malloc(sizeof(struct qv_file_t));
+    
+    my_qv_file->alphabet_size = ALPHABET_SIZE;
     
     //printf("%s\n", path);
     

@@ -29,12 +29,15 @@
 #include "quantizer.h"
 #include "qv_file.h"
 
-
-#define ALPHABET_SIZE 72
-
 #define MODE_RATIO		0	// Traditional implementation, output bitrate is scaled from input
 #define MODE_FIXED		1	// Fixed rate per symbol
 #define MODE_FIXED_MSE	2	// Fixed average MSE per column
+
+#ifdef __MMAP__
+#define qv2ch_mmap(a) a - 33
+#else
+#define qv2ch_mmap(a) a
+#endif
 
 /**
  * Options for the compression process
@@ -44,6 +47,7 @@ struct qv_options_t {
 	uint8_t stats;
 	uint8_t mode;
 	uint8_t clusters;
+    uint32_t num_iters;
     uint8_t uncompressed;
     uint8_t distortion;
 	char *dist_file;
@@ -51,6 +55,7 @@ struct qv_options_t {
 	double ratio;		// Used for parameter to all modes
 	double e_dist;		// Expected distortion as calculated during optimization
 	double cluster_threshold;
+    double D;
 };
 
 /**
@@ -115,6 +120,10 @@ struct cond_quantizer_list_t *read_codebook(FILE *fp, struct quality_file_t *inf
 #define COPY_Q_TO_LINE(line, q, i, size) for (i = 0; i < size; ++i) { line[i] = q[i] + 33; }
 #define COPY_Q_FROM_LINE(line, q, i, size) for (i = 0; i < size; ++i) { q[i] = line[i] - 33; }
 
+
 void print_codebook(struct cond_quantizer_list_t *);
+
+void preprocess_qvs(struct quality_file_t qv_info, struct qv_options_t *opts);
+struct cluster_list_t *alloc_cluster_list(struct quality_file_t *info);
 
 #endif

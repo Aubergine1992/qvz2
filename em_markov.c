@@ -11,11 +11,11 @@
 
 // *******************************************************************************//
 
-void alloc_markov_model(markov_model mm){
+void alloc_markov_model(markov_model mm, uint32_t num_nodes){
     
     uint32_t i = 0;
     
-    mm->num_nodes = QV_ALPHABET;
+    mm->num_nodes = num_nodes;
     
     mm->A = (double**)calloc(mm->num_nodes, sizeof(double*));
     for (i = 0; i < mm->num_nodes; i++) {
@@ -28,7 +28,7 @@ void alloc_markov_model(markov_model mm){
 
 // *******************************************************************************//
 
-em_markov alloc_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq){
+em_markov alloc_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq, uint32_t num_nodes){
     
     uint32_t i = 0;
     
@@ -40,17 +40,9 @@ em_markov alloc_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq){
     
     EM->qv_seqs = qv_seqs;
     
-    EM->clust = (struct clusters_t*)calloc(1, sizeof(struct clusters_t));
-    
-    EM->clust->clusters = (uint32_t *)calloc(EM->num_seq, sizeof(uint32_t));
-    
-    EM->clust->cluster_sizes = (uint32_t *)calloc(EM->num_models, sizeof(uint32_t));
-    
-    EM->clust->num_clusters = num_models;
-    
     EM->models = (struct markov_model_t*)calloc(num_models, sizeof(struct markov_model_t));
     for (i = 0; i<num_models; i++) {
-        alloc_markov_model(&(EM->models[i]));
+        alloc_markov_model(&(EM->models[i]), num_nodes);
     }
     
     EM->models_prior = (double*)calloc(num_models, sizeof(double));
@@ -184,7 +176,11 @@ double m_step(em_markov em){
     double *rl;
     uint8_t *qvs;
     
-    double temp_pi[QV_ALPHABET] = {0};
+    //double temp_pi[ALPHABET_SIZE] = {0};
+    
+    double *temp_pi;
+    
+    temp_pi = (double*)calloc(em->models[0].num_nodes, sizeof(double));
     
     double **temp_Ajk;
     temp_Ajk = (double**)calloc(em->models[0].num_nodes, sizeof(double*));
@@ -283,6 +279,8 @@ double m_step(em_markov em){
         free(temp_Ajk[i]);
     }
     free(temp_Ajk);
+    
+    free(temp_pi);
     return nll;
 }
 
@@ -325,11 +323,11 @@ void print_graph(em_markov m, FILE * graph_file){
 
 uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, const char *split_path){
     
-    uint32_t i = 0, j = 0;
+    uint32_t i = 0;
     
     double data_ll;
     
-    em_markov em = alloc_em(qv_f,num_models, qv_f->lines);
+    em_markov em = alloc_em(qv_f,num_models, qv_f->lines, qv_f->alphabet_size);
     
     initialize_em_markov(em);
     
@@ -344,7 +342,7 @@ uint32_t perform_em_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FI
         //fprintf(fo, "%d\n",em->clust->clusters[j]);
     //}
     //print_graph(em, fgraph);
-    split_data(split_path, em->clust,em->qv_seqs);
+    //split_data(split_path, em->clust,em->qv_seqs);
     
     return 0;
     

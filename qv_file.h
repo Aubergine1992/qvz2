@@ -26,6 +26,10 @@
 #include "distortion.h"
 #include "well.h"
 
+#define ALPHABET_SIZE 42
+
+#define qv2ch(a) a - 33
+
 // This limits us to chunks that aren't too big to fit into a modest amount of memory at a time
 #define MAX_LINES_PER_BLOCK			1000000
 #define MAX_READS_PER_LINE			1022
@@ -60,8 +64,8 @@ struct cluster_t {
 	// Used to do clustering
 	uint8_t id;					// Cluster ID
 	uint32_t count;				// Number of lines in this cluster
-	symbol_t *mean;				// Mean values for this cluster
-	uint64_t *accumulator;		// Accumulator for finding a new cluster center
+	//symbol_t *mean;				// Mean values for this cluster
+	//uint64_t *accumulator;		// Accumulator for finding a new cluster center
 
 	// Used after clustering is done
 	struct cond_pmf_list_t *training_stats;
@@ -74,8 +78,18 @@ struct cluster_t {
 struct cluster_list_t {
 	uint8_t count;
 	struct cluster_t *clusters;
-	double *distances;			// Temporary storage for distances to each cluster center
+	//double *distances;			// Temporary storage for distances to each cluster center
 };
+
+/**
+ *
+ */
+typedef struct qv_file_t{
+    uint8_t* file_head;
+    uint64_t lines;
+    uint32_t read_length;
+    uint32_t alphabet_size;
+} *qv_file;
 
 /**
  * Points to a file descriptor that includes important metadata about the file
@@ -91,14 +105,11 @@ struct quality_file_t {
 	struct cluster_list_t *clusters;
 	struct distortion_t *dist;
 	struct qv_options_t *opts;
-	struct well_state_t well;
+    struct well_state_t well;
+    struct qv_file_t *qv_f;
 };
 
-typedef struct qv_file_t{
-    uint8_t* file_head;
-    uint64_t lines;
-    uint32_t read_length;
-} *qv_file;
+
 
 // Memory management
 uint32_t load_qv_file(const char *path, struct quality_file_t *info, uint64_t max_lines);

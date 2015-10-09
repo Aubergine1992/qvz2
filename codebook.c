@@ -1,5 +1,5 @@
 #include "codebook.h"
-#include "cluster.h"
+//#include "cluster.h"
 
 #include <stdio.h>
 #include <assert.h>
@@ -196,9 +196,9 @@ void calculate_statistics(struct quality_file_t *info) {
 			pmf_list = cluster->training_stats;
 
 			// First, find conditional PMFs
-			pmf_increment(get_cond_pmf(pmf_list, 0, 0), line->m_data[0] - 33);
+			pmf_increment(get_cond_pmf(pmf_list, 0, 0), qv2ch_mmap(line->m_data[0]));
 			for (column = 1; column < info->columns; ++column) {
-				pmf_increment(get_cond_pmf(pmf_list, column, line->m_data[column-1] - 33), line->m_data[column] - 33);
+				pmf_increment(get_cond_pmf(pmf_list, column, qv2ch_mmap(line->m_data[column-1])), qv2ch_mmap(line->m_data[column]) );
 			}
 		}
 	}
@@ -251,7 +251,7 @@ double optimize_for_distortion(struct pmf_t *pmf, struct distortion_t *dist, dou
     *hi = q_temp;
     *lo = alloc_quantizer(pmf->alphabet);
     
-    hi_entropy = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
+    //hi_entropy = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
     
     
     do {
@@ -267,16 +267,11 @@ double optimize_for_distortion(struct pmf_t *pmf, struct distortion_t *dist, dou
     
     free_pmf(pmf_temp);
     
-    //if (verbose) {
-    //	printf("Optimization results: hi states: %d; H_lo: %f, H_hi: %f, target: %f.\n", states, lo_entropy, hi_entropy, target);
-    //	printf("Expected distortion: Low: %f, High: %f.\n", (*lo)->mse, (*hi)->mse);
-    //}
-    
-    hi_entropy = get_entropy(apply_quantizer(*hi, pmf, pmf_temp));
-    lo_entropy = get_entropy(apply_quantizer(*lo, pmf, pmf_temp));
+    //hi_entropy = get_entropy(apply_quantizer(*hi, pmf, pmf_temp));
+    //lo_entropy = get_entropy(apply_quantizer(*lo, pmf, pmf_temp));
     
     // Assign ratio based on how we did against our distortion target
-    if (lo_D >= target || hi_D == lo_D)
+    if (hi_D >= target || hi_D == lo_D)
         return 1.0;
     else
         return (target - hi_D) / (lo_D - hi_D);
@@ -467,7 +462,7 @@ void generate_codebooks(struct quality_file_t *info) {
 		if (opts->mode == MODE_RATIO)
 			ratio = optimize_for_entropy(get_cond_pmf(in_pmfs, 0, 0), dist, get_entropy(get_cond_pmf(in_pmfs, 0, 0))*opts->ratio, &q_lo, &q_hi);
 		else
-			ratio = optimize_for_distortion(get_cond_pmf(in_pmfs, 0, 0), dist, opts->distortion, &q_lo, &q_hi);
+			ratio = optimize_for_distortion(get_cond_pmf(in_pmfs, 0, 0), dist, opts->D, &q_lo, &q_hi);
 		q_lo->ratio = ratio;
 		q_hi->ratio = 1-ratio;
 		total_mse = ratio*q_lo->mse + (1-ratio)*q_hi->mse;
@@ -507,13 +502,13 @@ void generate_codebooks(struct quality_file_t *info) {
 				if (opts->mode == MODE_RATIO)
 					ratio = optimize_for_entropy(xpmf_list->pmfs[j], dist, get_entropy(xpmf_list->pmfs[j])*opts->ratio, &q_lo, &q_hi);
 				else
-					ratio = optimize_for_distortion(xpmf_list->pmfs[j], dist, opts->distortion, &q_lo, &q_hi);
+					ratio = optimize_for_distortion(xpmf_list->pmfs[j], dist, opts->D, &q_lo, &q_hi);
 				q_lo->ratio = ratio;
 				q_hi->ratio = 1-ratio;
         	    store_cond_quantizers_indexed(q_lo, q_hi, ratio, q_list, column, j);
 
 				// This actually needs to be scaled by the probability of this quantizer pair being used to be accurate, uniform assumption is an approximation
-				total_mse += (ratio*q_lo->mse + (1-ratio)*q_hi->mse) / q_output_union->size;
+				total_mse += (ratio*q_lo->mse + (1-ratio)*q_hi->mse);
         	}
         
         	// deallocated the memory of the used pmfs and alphabet
@@ -590,6 +585,30 @@ void write_codebook(FILE *fp, struct cond_quantizer_list_t *quantizers) {
 		}
 		fwrite(eol, sizeof(char), 1, fp);
 	}
+}
+
+/**
+ * Writes all of the codebooks for the set of quantizers given, along with necessary
+ * metadata (columns, lines, cluster counts) first
+ */
+void write_codebooks(FILE *fp, struct quality_file_t *info) {
+    uint32_t columns, lines;
+    uint32_t j;
+    char linebuf[1];
+    
+    // Header line is number of clusters (1 byte)
+    // number of columns (4), total number of lines (4), then a newline
+    columns = htonl(info->columns);
+    lines = htonl((uint32_t)info->lines);
+    linebuf[0] = info->cluster_count;
+    fwrite(linebuf, sizeof(char), 1, fp);
+    fwrite(&columns, sizeof(uint32_t), 1, fp);
+    fwrite(&lines, sizeof(uint32_t), 1, fp);
+    
+    // Now, write each cluster's codebook in order
+    for (j = 0; j < info->cluster_count; ++j) {
+        write_codebook(fp, info->clusters->clusters[j].qlist);
+    }
 }
 
 /**

@@ -11,11 +11,11 @@
 
 // *******************************************************************************//
 
-void alloc_markov_temporal_model(markov_temporal_model mm, uint32_t seq_length){
+void alloc_markov_temporal_model(markov_temporal_model mm, uint32_t seq_length, uint32_t num_nodes){
     
     uint32_t i = 0, t = 0;
     
-    mm->num_nodes = QV_ALPHABET;
+    mm->num_nodes = num_nodes;
     
     mm->num_ts = seq_length;
     
@@ -34,7 +34,7 @@ void alloc_markov_temporal_model(markov_temporal_model mm, uint32_t seq_length){
 
 // *******************************************************************************//
 
-em_temporal_markov alloc_temporal_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq){
+em_temporal_markov alloc_temporal_em(qv_file qv_seqs, uint32_t num_models, uint64_t num_seq, uint32_t num_nodes){
     
     uint32_t i = 0;
     
@@ -46,17 +46,9 @@ em_temporal_markov alloc_temporal_em(qv_file qv_seqs, uint32_t num_models, uint6
     
     EM->qv_seqs = qv_seqs;
     
-    EM->clust = (struct clusters_t*)calloc(1, sizeof(struct clusters_t));
-    
-    EM->clust->clusters = (uint32_t *)calloc(EM->num_seq, sizeof(uint32_t));
-    
-    EM->clust->cluster_sizes = (uint32_t *)calloc(EM->num_models, sizeof(uint32_t));
-    
-    EM->clust->num_clusters = num_models;
-    
     EM->models = (struct markov_temporal_model_t*)calloc(num_models, sizeof(struct markov_temporal_model_t));
     for (i = 0; i<num_models; i++) {
-        alloc_markov_temporal_model(&(EM->models[i]),qv_seqs->read_length);
+        alloc_markov_temporal_model(&(EM->models[i]),qv_seqs->read_length, num_nodes);
     }
     
     EM->models_prior = (double*)calloc(num_models, sizeof(double));
@@ -191,7 +183,9 @@ double temporal_m_step(em_temporal_markov em){
     double *rl;
     uint8_t *qvs;
     
-    double temp_pi[QV_ALPHABET] = {0};
+    double *temp_pi;
+    
+    temp_pi = (double*)calloc(em->models[0].num_nodes, sizeof(double));
     
     const uint32_t read_length = em->qv_seqs->read_length;
     
@@ -304,30 +298,32 @@ double temporal_m_step(em_temporal_markov em){
         free(temp_A[t]);
     }
     free(temp_A);
+    
+    free(temp_pi);
     return nll;
 }
 
 // *******************************************************************************//
 
-uint32_t perform_em_temporal_markov(qv_file qv_f, uint32_t num_models, uint32_t iters, FILE *fo, const char *split_path){
+double** perform_em_temporal_markov(qv_file qv_f, uint32_t num_models, uint32_t iters){
     
     uint32_t i = 0;
     
     double data_ll;
     
-    em_temporal_markov em = alloc_temporal_em(qv_f,num_models, qv_f->lines);
+    em_temporal_markov em = alloc_temporal_em(qv_f,num_models, qv_f->lines, qv_f->alphabet_size);
     
     initialize_em_temporal_markov(em);
     
     while (i++ < iters){
         temporal_e_step(em);
         data_ll = temporal_m_step(em);
-        printf("%03d: %f\n",i,data_ll);
+        //printf("%03d: %f\n",i,data_ll);
     }
     
-    compute_clusters(em->clust, em->r, em->num_seq);
+    //compute_clusters(em->clust, em->r, em->num_seq);
     
-    return 0;
+    return em->r;
     
 }
 
