@@ -84,7 +84,23 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 	for (j = 0; j < states; ++j) {
 		reconstruction[j] = (bounds[j] + bounds[j+1] - 1) / 2;
 	}
+    for (j = 0; j < size && r < states-1; ++j) {
+        // Get distortion for the current and next reconstruction points
+        // I don't think the PMF actually affects this since it is the same
+        // coefficient for both and we are comparing them
+        mse = get_distortion(dist, j, reconstruction[r]);
+        next_mse = get_distortion(dist, j, reconstruction[r+1]);
+        
+        // if the next one is lower, save the current symbol as the left bound
+        // for that region
+        if (next_mse < mse) {
+            r += 1;
+            bounds[r] = j;
+            assert(bounds[r] < 42);
+        }
+    }
     */
+    
     
     size = pmf->alphabet->size;
     // NEW FOR VERSION 2
@@ -116,7 +132,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
     bounds[0] = 0;
     bounds[states] = size;
     r = 0;
-    for (j = 0; j < size && r < states-1; ++j) {
+    for (j = 1; j < size && r < states-1; ++j) {
         // Get distortion for the current and next reconstruction points
         // I don't think the PMF actually affects this since it is the same
         // coefficient for both and we are comparing them
@@ -176,7 +192,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 		// assignment) and deciding which of the two nearest points they
 		// contribute the least expected distortion to
 		r = 0;
-		for (j = 1; j < size && r < states-1; ++j) {
+		for (j = 1; j < size-1 && r < states-1; ++j) {
 			// Get distortion for the current and next reconstruction points
 			// I don't think the PMF actually affects this since it is the same
 			// coefficient for both and we are comparing them

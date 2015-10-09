@@ -271,8 +271,8 @@ double optimize_for_distortion(struct pmf_t *pmf, struct distortion_t *dist, dou
     //lo_entropy = get_entropy(apply_quantizer(*lo, pmf, pmf_temp));
     
     // Assign ratio based on how we did against our distortion target
-    if (hi_D >= target || hi_D == lo_D)
-        return 1.0;
+    if (hi_D == target || hi_D == lo_D)
+        return 0.0;
     else
         return (target - hi_D) / (lo_D - hi_D);
 }
@@ -508,7 +508,7 @@ void generate_codebooks(struct quality_file_t *info) {
         	    store_cond_quantizers_indexed(q_lo, q_hi, ratio, q_list, column, j);
 
 				// This actually needs to be scaled by the probability of this quantizer pair being used to be accurate, uniform assumption is an approximation
-				total_mse += (ratio*q_lo->mse + (1-ratio)*q_hi->mse);
+				total_mse = (ratio*q_lo->mse + (1-ratio)*q_hi->mse);
         	}
         
         	// deallocated the memory of the used pmfs and alphabet

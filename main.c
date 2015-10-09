@@ -200,7 +200,7 @@ int main(int argc, const char * argv[]) {
     struct qv_options_t opts;
     
     // DEFAULT OPTIONS FOR THE MOMENT
-    opts.verbose = 1;
+    opts.verbose = 0;
     opts.stats = 0;
     opts.ratio = 1;
     opts.clusters = atoi(argv[3]);
@@ -210,7 +210,7 @@ int main(int argc, const char * argv[]) {
     opts.distortion = DISTORTION_MSE;
     opts.cluster_threshold = 4;
     opts.mode = 1;
-    opts.D = 40;
+    opts.D = atoi(argv[5]);
     //////////////////////////////////////
     
     // Load input file all at once
