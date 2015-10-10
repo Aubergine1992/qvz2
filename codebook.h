@@ -28,6 +28,7 @@
 #include "distortion.h"
 #include "quantizer.h"
 #include "qv_file.h"
+#include "matrix_functions.h"
 
 #define MODE_RATIO		0	// Traditional implementation, output bitrate is scaled from input
 #define MODE_FIXED		1	// Fixed rate per symbol

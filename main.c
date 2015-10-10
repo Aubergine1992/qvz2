@@ -199,6 +199,25 @@ int main(int argc, const char * argv[]) {
     struct quality_file_t qv_info;
     struct qv_options_t opts;
     
+    double A[25]={1,2,3,4,5, 2,3,4,1,5, 6,6,4,8,7, 9,4,3,6,7, 3,5,7,1,2};
+    double **c;
+    int i,j,n=5;
+    c = malloc((n)*sizeof(double *));
+    for (i=0;i<n;i++){
+        c[i] = malloc((n)*sizeof(double));
+        for (j=0; j<n; j++) {
+            c[i][j]=A[n*i+j];
+        }
+    }
+    
+    double **b;
+    b = malloc((n)*sizeof(double *));
+    for (i=0;i<n;i++)
+        b[i] = malloc((n)*sizeof(double));
+    
+    MxM(c, c, &A, 5, 5, 25);
+    Inverse(c, b, 5);
+    
     // DEFAULT OPTIONS FOR THE MOMENT
     opts.verbose = 0;
     opts.stats = 0;
