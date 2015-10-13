@@ -225,7 +225,7 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
     
     struct pmf_t *pmf_temp = alloc_pmf(pmf->alphabet);
     struct quantizer_t *q_temp;
-    int K = ALPHABET_SIZE+2,N = 7;
+    int K = ALPHABET_SIZE+2,N = 10;
     
     int i, n = 0,j;
     double sum_x, sum_x2, sum_y, sum_xy;
@@ -240,7 +240,7 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
         // On state will suffice in the computation of the quantizer
         free(x);
         free(y);
-        return -1.0;
+        return 1.0;
     }
     prev_xi = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
 
@@ -268,8 +268,8 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
         
         // Fill the vectors with piece-wise linear functions
         for (j=0; j<N; j++) {
-            y[n] = log(prev_yi)*(1.0 - (double)j/(double)N) + log(yi)*((double)j/(double)N);
-            //y[n] = log( prev_yi*(1.0 - (double)j/(double)N) + yi*((double)j/(double)N) );
+            //y[n] = log(prev_yi)*(1.0 - (double)j/(double)N) + log(yi)*((double)j/(double)N);
+            y[n] = log( prev_yi*(1.0 - (double)j/(double)N) + yi*((double)j/(double)N) );
             x[n] = prev_xi*(1.0 - (double)j/(double)N) + xi*((double)j/(double)N);
             n++;
         }
@@ -284,6 +284,8 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
         // Treat this case differently
         free(x);
         free(y);
+        free_quantizer(q_temp);
+        free_pmf(pmf_temp);
         return 1.0;
     }
     if (n==0) {
@@ -309,6 +311,7 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
     }
     free(x);
     free(y);
+    free_quantizer(q_temp);
     return b;
     
 }
@@ -598,12 +601,14 @@ void generate_codebooks(struct quality_file_t *info) {
 				if (opts->mode == MODE_RATIO)
 					ratio = optimize_for_entropy(xpmf_list->pmfs[j], dist, get_entropy(xpmf_list->pmfs[j])*opts->ratio, &q_lo, &q_hi);
                 else{
-                    hi = compute_DR_slope(xpmf_list->pmfs[j], dist);
-                    if (hi>0) {
-                        hi = h1;
-                    }
-                    target_dist = (hi/h1)*opts->D;
-                    //target_dist = opts->D;
+                    // For version 2
+                    //hi = compute_DR_slope(xpmf_list->pmfs[j], dist);
+                    //if (hi>0) {
+                    //    hi = h1;
+                    //}
+                    //target_dist = (hi/h1)*opts->D;
+                    
+                    target_dist = opts->D;
 					ratio = optimize_for_distortion(xpmf_list->pmfs[j], dist,target_dist , &q_lo, &q_hi);
                 }
 				q_lo->ratio = ratio;
