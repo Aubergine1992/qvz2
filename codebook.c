@@ -219,6 +219,101 @@ void calculate_statistics(struct quality_file_t *info) {
 }
 
 /**
+ * Compute the slope of the D(R)
+ */
+double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
+    
+    struct pmf_t *pmf_temp = alloc_pmf(pmf->alphabet);
+    struct quantizer_t *q_temp;
+    int K = ALPHABET_SIZE+2,N = 7;
+    
+    int i, n = 0,j;
+    double sum_x, sum_x2, sum_y, sum_xy;
+    double prev_yi = 0, yi=1.0, prev_xi, xi;
+    double *x = (double*)malloc(sizeof(double*)*K*N);
+    double *y = (double*)malloc(sizeof(double)*K*N);
+    
+    q_temp = generate_quantizer(pmf, dist, 1);
+    prev_yi = q_temp->mse;
+    if (prev_yi == 0) {
+        // In this case we are in a zero pmf or in a one-point pmf.
+        // On state will suffice in the computation of the quantizer
+        free(x);
+        free(y);
+        return -1.0;
+    }
+    prev_xi = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
+
+    for (i = 2; i<K ; i++) {
+        q_temp = generate_quantizer(pmf, dist, i);
+        yi = q_temp->mse;
+        if (prev_yi == yi) {
+            // This should not happend, however the discrete Lloyd-max
+            // as implemented is suboptimal.
+            continue;
+        }
+        xi = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
+        if (yi == 0) {
+            // We are at the last point of the D(R).
+            // We need to treat it differently, as log(0)=-Inf
+            // The last point is also misleading a it has different behaviour
+            y[n] = log(prev_yi);
+            n++;
+            break;
+        }
+        //if (prev_yi > yi) {
+            // This souldnt happend but again, the quantizer is suboptimal
+            // Assuming that it does not matter, thus, do nothing
+        //}
+        
+        // Fill the vectors with piece-wise linear functions
+        for (j=0; j<N; j++) {
+            y[n] = log(prev_yi)*(1.0 - (double)j/(double)N) + log(yi)*((double)j/(double)N);
+            //y[n] = log( prev_yi*(1.0 - (double)j/(double)N) + yi*((double)j/(double)N) );
+            x[n] = prev_xi*(1.0 - (double)j/(double)N) + xi*((double)j/(double)N);
+            n++;
+        }
+        
+        //y[n] = log(yi);
+        //x[n] = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
+        prev_yi = yi;
+        prev_xi = xi;
+    }
+    if (n==1) {
+        // We are in the case of a 2-point pmf [(0,D) (R,0)]
+        // Treat this case differently
+        free(x);
+        free(y);
+        return 1.0;
+    }
+    if (n==0) {
+        printf("asdf");
+        
+    }
+    
+    sum_x=0;
+    sum_x2=0;
+    sum_xy=0;
+    sum_y=0;
+    for (i=0; i<n; i++) {
+        sum_x += x[i];
+        sum_x2 += x[i]*x[i];
+        sum_xy += x[i]*y[i];
+        sum_y += y[i];
+    }
+    free_pmf(pmf_temp);
+    double b=(sum_xy-(1.0/(double)n)*sum_x*sum_y)/(sum_x2-(1.0/(double)n)*sum_x*sum_x);
+    
+    if(isnan(b)){
+        printf("NAN slope\n");
+    }
+    free(x);
+    free(y);
+    return b;
+    
+}
+
+/**
  * Searches (linearly) for the pair of quantizers that surround the target Distortion by guessing and checking the number of states
  * @param pmf The pmf that is to be quantized
  * @param dist The distortion metric to quantize against
@@ -229,7 +324,7 @@ void calculate_statistics(struct quality_file_t *info) {
 double optimize_for_distortion(struct pmf_t *pmf, struct distortion_t *dist, double target, struct quantizer_t **lo, struct quantizer_t **hi) {
     
     struct quantizer_t *q_temp;
-    double lo_entropy, hi_entropy,lo_D, hi_D;
+    double lo_D, hi_D;
     struct pmf_t *pmf_temp = alloc_pmf(pmf->alphabet);
     uint32_t states = 1;
     
@@ -250,9 +345,6 @@ double optimize_for_distortion(struct pmf_t *pmf, struct distortion_t *dist, dou
     
     *hi = q_temp;
     *lo = alloc_quantizer(pmf->alphabet);
-    
-    //hi_entropy = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
-    
     
     do {
         free_quantizer(*lo);
@@ -417,6 +509,7 @@ void generate_codebooks(struct quality_file_t *info) {
 	// Miscellaneous variables
 	uint32_t column, j;
 	double total_mse;
+    double hi = 0,h1 = 0,target_dist;
     
 	// Output list of conditional quantizers
 	struct cond_quantizer_list_t *q_list;
@@ -444,6 +537,7 @@ void generate_codebooks(struct quality_file_t *info) {
 	struct qv_options_t *opts = info->opts;
 	struct distortion_t *dist = info->dist;
 
+    target_dist = opts->D;
 	for (cluster_id = 0; cluster_id < info->cluster_count; ++cluster_id) {
 		q_list = alloc_conditional_quantizer_list(info->columns);
 		info->clusters->clusters[cluster_id].qlist = q_list;
@@ -461,8 +555,10 @@ void generate_codebooks(struct quality_file_t *info) {
 		// @todo handle fixed mse target
 		if (opts->mode == MODE_RATIO)
 			ratio = optimize_for_entropy(get_cond_pmf(in_pmfs, 0, 0), dist, get_entropy(get_cond_pmf(in_pmfs, 0, 0))*opts->ratio, &q_lo, &q_hi);
-		else
+        else{
+            h1 = compute_DR_slope(get_cond_pmf(in_pmfs, 0, 0), dist);
 			ratio = optimize_for_distortion(get_cond_pmf(in_pmfs, 0, 0), dist, opts->D, &q_lo, &q_hi);
+        }
 		q_lo->ratio = ratio;
 		q_hi->ratio = 1-ratio;
 		total_mse = ratio*q_lo->mse + (1-ratio)*q_hi->mse;
@@ -501,8 +597,15 @@ void generate_codebooks(struct quality_file_t *info) {
 				// @todo handle fixed mse target
 				if (opts->mode == MODE_RATIO)
 					ratio = optimize_for_entropy(xpmf_list->pmfs[j], dist, get_entropy(xpmf_list->pmfs[j])*opts->ratio, &q_lo, &q_hi);
-				else
-					ratio = optimize_for_distortion(xpmf_list->pmfs[j], dist, opts->D, &q_lo, &q_hi);
+                else{
+                    hi = compute_DR_slope(xpmf_list->pmfs[j], dist);
+                    if (hi>0) {
+                        hi = h1;
+                    }
+                    target_dist = (hi/h1)*opts->D;
+                    //target_dist = opts->D;
+					ratio = optimize_for_distortion(xpmf_list->pmfs[j], dist,target_dist , &q_lo, &q_hi);
+                }
 				q_lo->ratio = ratio;
 				q_hi->ratio = 1-ratio;
         	    store_cond_quantizers_indexed(q_lo, q_hi, ratio, q_list, column, j);

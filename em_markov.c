@@ -94,7 +94,7 @@ void initialize_em_markov(em_markov em){
     
     srand((unsigned) time(&t));
     
-    //srand(1);
+    srand(1);
     
     uint32_t model_idx;
     

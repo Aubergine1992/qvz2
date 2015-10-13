@@ -215,8 +215,8 @@ int main(int argc, const char * argv[]) {
     for (i=0;i<n;i++)
         b[i] = malloc((n)*sizeof(double));
     
-    MxM(c, c, &A, 5, 5, 25);
-    Inverse(c, b, 5);
+    //MxM(c, c, &A, 5, 5, 25);
+    //Inverse(c, b, 5);
     
     // DEFAULT OPTIONS FOR THE MOMENT
     opts.verbose = 0;
