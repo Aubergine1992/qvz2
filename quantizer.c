@@ -67,7 +67,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 	struct quantizer_t *q = alloc_quantizer(pmf->alphabet);
 	uint32_t changed = 1;
 	uint32_t iter = 0;
-	uint32_t i, j, r, size;
+	int32_t i, j, r, size;
 	uint32_t min_r;
 	double mse, min_mse, next_mse;
 	symbol_t *bounds = (symbol_t *) _alloca((states+1)*sizeof(symbol_t));
@@ -75,7 +75,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 
     // OLD VERSION
 	// Initial bounds and reconstruction points
-    
+    /*
 	bounds[0] = 0;
 	bounds[states] = pmf->alphabet->size;
 	for (j = 1; j < states; ++j) {
@@ -84,10 +84,185 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 	for (j = 0; j < states; ++j) {
 		reconstruction[j] = (bounds[j] + bounds[j+1] - 1) / 2;
 	}
+    */
+    size = pmf->alphabet->size;
+    int mass_count = 0;
+    int first_mass = -1, last_mass = 0;
+    int *mass_array = (int*)calloc(size, sizeof(int));
+    // Vesrion 4.2
+    for (i=0; i<size; i++) {
+        if (pmf->pmf[i] > 0)
+        {
+            if(first_mass < 0){
+                first_mass = i;
+                
+            }
+            mass_array[mass_count] = i;
+            mass_count++;
+            last_mass = i;
+        }
+    }
+    if (mass_count == 0 || states == 1) {
+        assert(states==1);
+        bounds[0] = 0;
+        bounds[states] = 42;
+    }
+    
+    else{
+        bounds[states] = last_mass+1;
+        for (j=0; j<states; j++) {
+            bounds[j] = mass_array[(j * mass_count) / states];
+        }
+        
+    }
+    for (j = 0; j < states; ++j) {
+        reconstruction[j] = (bounds[j] + bounds[j+1] - 1) / 2;
+    }
+    free(mass_array);
+    /*
+    // Version 4.1
+    // Initial bounds and reconstruction points
+    int mass_count = 0;
+    int first_mass = -1, last_mass = 0;
+    for (i=0; i<size; i++) {
+        if (pmf->pmf[i] > 0)
+        {
+            if(first_mass < 0){
+                first_mass = i;
+                
+            }
+            mass_count++;
+            last_mass = i;
+        }
+    }
+    if (mass_count == 0 && states == 1) {
+        bounds[0] = 0;
+        bounds[states] = 42;
+    }
+    else if (mass_count == 0 && states > 1){
+        // This should not happend
+        printf("");
+    }
+    else{
+        bounds[0] = first_mass;
+        bounds[states] = last_mass + 1;
+        size = (last_mass + 1) - first_mass;
+        for (j = 1; j < states; ++j) {
+            bounds[j] = ((j * size) / states)+first_mass;
+        }
+    }
+    for (j = 0; j < states; ++j) {
+        reconstruction[j] = (bounds[j] + bounds[j+1] - 1) / 2;
+    }
     
     size = pmf->alphabet->size;
     
-    // NEW FOR VERSION 2
+    */
+    
+    /* Version 3
+    int mass_count = 0;
+    bounds[0] = 0;
+    bounds[states] = pmf->alphabet->size;
+    for (j = 1; j < states; ++j) {
+        bounds[j] = (j * pmf->alphabet->size) / states;
+    }
+    while (1) {
+        
+        mass_count = 0;
+        for (i=bounds[j-1]; i<bounds[j]; i++) {
+            if (pmf->pmf[i] > 0)
+                mass_count++;
+        }
+        while ((mass_count += pmf->pmf[i++]) == 0) {
+            bounds[j]++;
+        }
+        
+    }
+    for (j = 0; j < states; ++j) {
+        reconstruction[j] = (bounds[j] + bounds[j+1] - 1) / 2;
+    }
+    
+    size = pmf->alphabet->size;
+    */
+    /*
+    double target_mass = 1.0/states;
+    int set_count = 0;
+    double cum_mass = 0.0;
+    int max_count, mass_count=0, mass_count_ctr = 0;
+    
+    for (i=0; i<size; i++) {
+        if (pmf->pmf[i] > 0)
+            mass_count++;
+    }
+    if (mass_count == 0) {
+        // I think this should not happend.
+        // We need to go through the code to try to figure it out
+        printf("");
+    }
+    
+    if (mass_count == 0 && states > 1) {
+        // I think this should not happend.
+        // We need to go through the code to try to figure it out
+        printf("");
+    }
+    
+    max_count = mass_count - states + 1;
+    
+    //assert(max_count > 0);
+    bounds[0] = 0;
+    bounds[states] = pmf->alphabet->size;
+    j=0;
+    for (i=0; i<size && mass_count_ctr <= mass_count; i++) {
+        cum_mass += pmf->pmf[i];
+        if (pmf->pmf[i] > 0) {
+            set_count++;
+            mass_count_ctr++;
+            if (set_count == max_count) {
+                bounds[++j] = i+1;
+                cum_mass = 0.0;
+                set_count = 0;
+                max_count = mass_count - mass_count_ctr - states + j + 1;
+                continue;
+            }
+        }
+        if (cum_mass >= target_mass) {
+            bounds[++j] = i+1;
+            max_count = mass_count - mass_count_ctr - states + j + 1;
+            cum_mass = 0.0;
+            set_count = 0;
+        }
+    }
+    // First, adjust the reconstruction points for fixed bounds
+    for (j = 0; j < states; ++j) {
+        // Initial guess for min values
+        min_mse = DBL_MAX;
+        min_r = bounds[j];
+        assert(bounds[j] < 42);
+        assert(bounds[j+1] <= 42);
+        // For each possible reconstruction point
+        for (r = bounds[j]; r < bounds[j+1]; ++r) {
+            // Find its distortion when used for the whole region
+            mse = 0.0;
+            for (i = bounds[j]; i < bounds[j+1]; ++i) {
+                mse += get_probability(pmf, i) * get_distortion(dist, i, r);
+            }
+            
+            // Compare to minimums, save if better
+            if (mse < min_mse) {
+                min_r = r;
+                min_mse = mse;
+            }
+        }
+        
+        // Check if we've changed our reconstruction and save it
+        if (min_r != reconstruction[j]) {
+            changed = 1;
+            reconstruction[j] = min_r;
+        }
+        assert(reconstruction[j] < 42);
+    }
+    */
+    // VERSION 2
     /*
     // This is a k-means algorithm, thus initialization is very important.
     // We are setting the initial points to those with the largest mass.
@@ -135,6 +310,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
         assert(bounds[j] <= 42);
     }
     */
+    
 	// Lloyd-Max quantizer design alternating between adjustment of bounds
 	// and of reconstruction point locations until there is no change
 	while (changed && iter < QUANTIZER_MAX_ITER) {

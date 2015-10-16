@@ -225,13 +225,16 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
     
     struct pmf_t *pmf_temp = alloc_pmf(pmf->alphabet);
     struct quantizer_t *q_temp;
-    int K = ALPHABET_SIZE+2,N = 10;
+    int K = ALPHABET_SIZE+2,N = 2;
     
     int i, n = 0,j;
     double sum_x, sum_x2, sum_y, sum_xy;
     double prev_yi = 0, yi=1.0, prev_xi, xi;
-    double *x = (double*)malloc(sizeof(double*)*K*N);
-    double *y = (double*)malloc(sizeof(double)*K*N);
+    //double *x = (double*)calloc(K*N,sizeof(double));
+    //double *y = (double*)calloc(K*N,sizeof(double));
+    
+    double *x = (double*)malloc(K*N*sizeof(double));
+    double *y = (double*)malloc(K*N*sizeof(double));
     
     q_temp = generate_quantizer(pmf, dist, 1);
     prev_yi = q_temp->mse;
@@ -240,9 +243,13 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
         // On state will suffice in the computation of the quantizer
         free(x);
         free(y);
+        free_quantizer(q_temp);
+        free_pmf(pmf_temp);
         return 1.0;
     }
     prev_xi = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
+    
+    assert(prev_xi ==0.0);
 
     for (i = 2; i<K ; i++) {
         q_temp = generate_quantizer(pmf, dist, i);
@@ -271,6 +278,7 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
             //y[n] = log(prev_yi)*(1.0 - (double)j/(double)N) + log(yi)*((double)j/(double)N);
             y[n] = log( prev_yi*(1.0 - (double)j/(double)N) + yi*((double)j/(double)N) );
             x[n] = prev_xi*(1.0 - (double)j/(double)N) + xi*((double)j/(double)N);
+            assert(!isnan(x[n]));
             n++;
         }
         
@@ -278,6 +286,7 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
         //x[n] = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
         prev_yi = yi;
         prev_xi = xi;
+        free_quantizer(q_temp);
     }
     if (n==1) {
         // We are in the case of a 2-point pmf [(0,D) (R,0)]
@@ -288,15 +297,12 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
         free_pmf(pmf_temp);
         return 1.0;
     }
-    if (n==0) {
-        printf("asdf");
-        
-    }
+    assert(n!=0);
     
-    sum_x=0;
-    sum_x2=0;
-    sum_xy=0;
-    sum_y=0;
+    sum_x=0.0;
+    sum_x2=0.0;
+    sum_xy=0.0;
+    sum_y=0.0;
     for (i=0; i<n; i++) {
         sum_x += x[i];
         sum_x2 += x[i]*x[i];
@@ -306,9 +312,8 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
     free_pmf(pmf_temp);
     double b=(sum_xy-(1.0/(double)n)*sum_x*sum_y)/(sum_x2-(1.0/(double)n)*sum_x*sum_x);
     
-    if(isnan(b)){
-        printf("NAN slope\n");
-    }
+    assert(!isnan(b));
+
     free(x);
     free(y);
     free_quantizer(q_temp);
@@ -559,7 +564,7 @@ void generate_codebooks(struct quality_file_t *info) {
 		if (opts->mode == MODE_RATIO)
 			ratio = optimize_for_entropy(get_cond_pmf(in_pmfs, 0, 0), dist, get_entropy(get_cond_pmf(in_pmfs, 0, 0))*opts->ratio, &q_lo, &q_hi);
         else{
-            h1 = compute_DR_slope(get_cond_pmf(in_pmfs, 0, 0), dist);
+            //h1 = compute_DR_slope(get_cond_pmf(in_pmfs, 0, 0), dist);
 			ratio = optimize_for_distortion(get_cond_pmf(in_pmfs, 0, 0), dist, opts->D, &q_lo, &q_hi);
         }
 		q_lo->ratio = ratio;
