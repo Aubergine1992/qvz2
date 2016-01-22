@@ -209,6 +209,7 @@ qv_file load_file(const char *path, uint64_t max_lines){
     // Open the file
     fp = fopen(path, "rt");
     if (!fp) {
+        free(my_qv_file);
         return NULL;
     }
     
@@ -219,6 +220,7 @@ qv_file load_file(const char *path, uint64_t max_lines){
     my_qv_file->read_length = (uint32_t)strlen(line) - 1;
     if (my_qv_file->read_length > MAX_READS_PER_LINE) {
         fclose(fp);
+        free(my_qv_file);
         return NULL;
     }
     

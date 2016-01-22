@@ -10,6 +10,8 @@
 
 #define ALPHABET_INDEX_SIZE_HINT			62
 
+#define ALPHABET_NOT_SYMBOL                 127
+
 // Unfortunately this is a bit brittle so don't change it
 typedef uint8_t symbol_t;
 

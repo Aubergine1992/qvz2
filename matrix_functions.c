@@ -122,6 +122,9 @@ void Inverse(double** a, double **inv, int n){
     det=Determinant(a,n);
     if (det == 0) {
         printf("ERROR: Matrix not invertible");
+        for (i=0;i<n;i++)
+            free(c[i]);
+        free(c);
         return ;
     }
     else{
@@ -133,6 +136,9 @@ void Inverse(double** a, double **inv, int n){
             }
         }
     }
+    for (i=0;i<n;i++)
+        free(c[i]);
+    free(c);
 }
 
 void MxM(double** a, double** c, double**results, int n, int m, int k){

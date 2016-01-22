@@ -39,8 +39,7 @@ int compare_int (const void * a, const void * b)
  * Allocate enough room based on the size of the alphabet supplied
  */
 struct quantizer_t *alloc_quantizer(const struct alphabet_t *alphabet) {
-    struct quantizer_t *rtn = NULL;
-	rtn = (struct quantizer_t *) calloc(1, sizeof(struct quantizer_t));
+    struct quantizer_t *rtn = (struct quantizer_t *) calloc(1, sizeof(struct quantizer_t));
 	rtn->alphabet = alphabet;
 	rtn->q = (symbol_t *) calloc(alphabet->size, sizeof(symbol_t));
 	return rtn;
@@ -367,6 +366,11 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 			}
 		}
 	}
+    
+    // We need to initialize the quantizer to NOT_SYMBOLS for the decoder
+    for (i = 0; i<q->alphabet->size; i++) {
+        q->q[i] = ALPHABET_NOT_SYMBOL;
+    }
 
 	// Now, iterate over the regions and set up the quantizer mapping from input
 	// to reconstruction point
@@ -428,18 +432,25 @@ struct pmf_t *apply_quantizer(struct quantizer_t *restrict q, struct pmf_t *rest
 void find_output_alphabet(struct quantizer_t *q) {
 	symbol_t p;
 	uint32_t x;
-	uint32_t size;
+	uint32_t size = 0;
 	symbol_t *uniques = (symbol_t *) _alloca(q->alphabet->size * sizeof(symbol_t));
 
-	// First symbol in quantizer output is always unique
+	// First symbol in quantizer output is always unique --> NOT TURE NOW: We need to ignore ALPHABET_NOT_SYMBOLs
 	p = q->q[0];
-	uniques[0] = p;
-	size = 1;
+    if (p != ALPHABET_NOT_SYMBOL) {
+        uniques[0] = p;
+        size = 1;
+    }
+	
 
 	// Search the rest of the quantizer
+    // We needed to change this since now the end of the quantizer may be ALPHABET_NOT_SYMBOLs (unused values)
 	for (x = 1; x < q->alphabet->size; ++x) {
 		if (q->q[x] != p) {
 			p = q->q[x];
+            if (p == ALPHABET_NOT_SYMBOL) {
+                break;
+            }
 			uniques[size] = p;
 			size += 1;
 		}

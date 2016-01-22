@@ -185,7 +185,65 @@ void encoding(struct quality_file_t qv_info, struct qv_options_t *opts, const ch
     printf("%llu\t%f\n",bytes_used,distortion);
 }
 
+/**
+ *
+ */
+void decode(char *input_file, char *output_file, struct qv_options_t *opts) {
+    FILE *fin, *fout;
+    struct hrtimer_t timer;
+    struct quality_file_t qv_info;
+    struct alphabet_t *A = alloc_alphabet(ALPHABET_SIZE);
+    
+    qv_info.alphabet = A;
+    qv_info.opts = opts;
+    
+    start_timer(&timer);
+    
+    fin = fopen(input_file, "rb");
+    fout = fopen(output_file, "wt");
+    if (!fin || !fout) {
+        perror("Unable to open input or output files");
+        exit(1);
+    }
+    
+    read_codebooks(fin, &qv_info);
+    start_qv_decompression(fout, fin, &qv_info);
+    
+    fclose(fout);
+    fclose(fin);
+    stop_timer(&timer);
+    
+    if (opts->verbose) {
+        printf("Decoded %llu lines in %f seconds.\n", qv_info.lines, get_timer_interval(&timer));
+    }
+}
 
+
+
+// *******************************************************************************//
+
+/**
+ * Displays a usage name
+ * @param name Program name string
+ */
+void usage(const char *name) {
+    printf("Usage: %s (options) [input file] [output file]\n", name);
+    printf("Options are:\n");
+    printf("   -q           : Store quality values in compressed file (default)\n");
+    printf("   -x           : Extract quality values from compressed file\n");
+    printf("   -t           : Target average distortion, measured as specified by -d or -D (default 1)\n");
+    printf("   -i           : Number of iterations of the clustering algorithm (default 50)\n");
+    printf("   -d [M|L|A]   : Optimize for MSE, Log(1+L1), L1 distortions, respectively (default: MSE)\n");
+    printf("   -D [FILE]    : Optimize using the custom distortion matrix specified in FILE\n");
+    printf("   -c [#]       : Compress using [#] clusters (default: 1)\n");
+    printf("   -u [FILE]    : Write the uncompressed lossy values to FILE (default: off)\n");
+    printf("   -h           : Print this help\n");
+    printf("   -s           : Print summary stats\n");
+    printf("   -v           : Enable verbose output\n");
+    printf("\nFor custom distortion matrices, a 72x72 matrix of values must be provided as the cost of reconstructing\n");
+    printf("the x-th row as the y-th column, where x and y range from 0 to 71 (inclusive) corresponding to the possible\n");
+    printf("Phred scores.\n");
+}
 
 // *******************************************************************************//
 
@@ -215,34 +273,175 @@ int main(int argc, const char * argv[]) {
     for (i=0;i<n;i++)
         b[i] = malloc((n)*sizeof(double));
     
+    uint8_t extract = 0;
+    uint8_t file_idx = 0;
+    
+    const char *input_name = 0;
+    const char *output_name = 0;
+    
     //MxM(c, c, &A, 5, 5, 25);
     //Inverse(c, b, 5);
     
-    // DEFAULT OPTIONS FOR THE MOMENT
+    // DEFAULT OPTIONS
     opts.verbose = 0;
     opts.stats = 0;
     opts.ratio = 1;
-    opts.clusters = atoi(argv[3]);
-    opts.num_iters = atoi(argv[4]);
-    opts.uncompressed = 1;
-    opts.uncompressed_name = argv[6];
+    opts.num_iters = 50;
     opts.distortion = DISTORTION_MSE;
     opts.cluster_threshold = 4;
     opts.mode = 1;
-    opts.D = atof(argv[5]);
+    opts.D = 1;
+    opts.clusters = 1;
+    extract = 0;
     //////////////////////////////////////
     
-    // Load input file all at once
-    qv_file qv_f = load_file(path, -1);
-    status = generate_qv_struct(qv_f, &qv_info, 0);
-    if (status != LF_ERROR_NONE) {
-        printf("load_file returned error: %d\n", status);
+    
+    // No dependency, cross-platform command line parsing means no getopt
+    // So we need to settle for less than optimal flexibility (no combining short opts, maybe that will be added later)
+    i = 1;
+    while (i < argc) {
+        // Handle file names and reject any other untagged arguments
+        if (argv[i][0] != '-') {
+            switch (file_idx) {
+                case 0:
+                    input_name = argv[i];
+                    file_idx = 1;
+                    break;
+                case 1:
+                    output_name = argv[i];
+                    file_idx = 2;
+                    break;
+                default:
+                    printf("Garbage argument \"%s\" detected.\n", argv[i]);
+                    usage(argv[0]);
+                    exit(1);
+            }
+            i += 1;
+            continue;
+        }
+        
+        // Flags for options
+        switch(argv[i][1]) {
+            case 'x':
+                extract = 1;
+                i += 1;
+                break;
+            case 'q':
+                extract = 0;
+                i += 1;
+                break;
+            case 'c':
+                opts.clusters = atoi(argv[i+1]);
+                i += 2;
+                break;
+            case 'v':
+                opts.verbose = 1;
+                i += 1;
+                break;
+            case 'h':
+                usage(argv[0]);
+                exit(0);
+            case 's':
+                opts.stats = 1;
+                i += 1;
+                break;
+            case 'u':
+                opts.uncompressed = 1;
+                opts.uncompressed_name = argv[i+1];
+                i += 2;
+                break;
+            case 't':
+                opts.D = atof(argv[i+1]);
+                i += 2;
+                break;
+            case 'i':
+                opts.num_iters = atoi(argv[i+1]);
+                i += 2;
+                break;
+            case 'd':
+                switch (argv[i+1][0]) {
+                    case 'M':
+                        opts.distortion = DISTORTION_MSE;
+                        break;
+                    case 'L':
+                        opts.distortion = DISTORTION_LORENTZ;
+                        break;
+                    case 'A':
+                        opts.distortion = DISTORTION_MANHATTAN;
+                        break;
+                    default:
+                        printf("Distortion measure not supported, using MSE.\n");
+                        break;
+                }
+                i += 2;
+                break;
+            case 'D':
+                opts.distortion = DISTORTION_CUSTOM;
+                opts.dist_file = argv[i+1];
+                i += 2;
+                break;
+            default:
+                printf("Unrecognized option -%c.\n", argv[i][1]);
+                usage(argv[0]);
+                exit(1);
+        }
+    }
+    
+    if (file_idx != 2) {
+        printf("Missing required filenames.\n");
+        usage(argv[0]);
         exit(1);
     }
-    qv_info.qv_f = qv_f;
     
-    //Generate the clusters and calculate the quantizers
-    encoding(qv_info, &opts, argv[2]);
+    if (opts.verbose) {
+        if (extract) {
+            printf("%s will be decoded to %s.\n", input_name, output_name);
+        }
+        else {
+            printf("%s will be encoded as %s.\n", input_name, output_name);
+            if (opts.mode == MODE_RATIO)
+                printf("Ratio mode selected, targeting %f compression ratio.\n", opts.ratio);
+            else if (opts.mode == MODE_FIXED)
+                printf("Fixed-rate mode selected, targeting %f bits per symbol.\n", opts.ratio);
+            else if (opts.mode == MODE_FIXED_MSE)
+                printf("Fixed-MSE mode selected, targeting %f average distortion per context.\n", opts.ratio);
+            
+            switch (opts.distortion) {
+                case DISTORTION_MSE:
+                    printf("MSE will be used as a distortion metric.\n");
+                    break;
+                case DISTORTION_LORENTZ:
+                    printf("log(1+L1) will be used as a distortion metric.\n");
+                    break;
+                case DISTORTION_MANHATTAN:
+                    printf("L1 will be used as a distortion metric.\n");
+                    break;
+                case DISTORTION_CUSTOM:
+                    printf("A custom distortion metric stored in %s will be used.\n", opts.dist_file);
+                    break;
+            }
+            
+            printf("Compression will use %d clusters, with a movement threshold of %.0f.\n", opts.clusters, opts.cluster_threshold);
+        }
+    }
+
+    
+    if (extract) {
+        decode(input_name, output_name, &opts);
+    }
+    else{
+        // Load input file all at once
+        qv_file qv_f = load_file(path, -1);
+        status = generate_qv_struct(qv_f, &qv_info, 0);
+        if (status != LF_ERROR_NONE) {
+            printf("load_file returned error: %d\n", status);
+            exit(1);
+        }
+        qv_info.qv_f = qv_f;
+    
+        //Generate the clusters and calculate the quantizers and compress
+        encoding(qv_info, &opts, output_name);
+    }
     
     return 0;
 }

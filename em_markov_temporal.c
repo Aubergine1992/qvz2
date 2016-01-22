@@ -19,7 +19,7 @@ void alloc_markov_temporal_model(markov_temporal_model mm, uint32_t seq_length, 
     
     mm->num_ts = seq_length;
     
-    mm->A = (double***)calloc(mm->num_ts, sizeof(double*));
+    mm->A = (double***)calloc(mm->num_ts, sizeof(double**));
     for (t = 0; t < mm->num_ts; t++) {
         mm->A[t] = (double**)calloc(mm->num_nodes, sizeof(double*));
         for (i = 0; i < mm->num_nodes; i++) {

@@ -43,9 +43,10 @@ void free_conditional_pmf_list(struct cond_pmf_list_t *list) {
 	for (i = 0; i < count; ++i) {
 		free_pmf(list->pmfs[i]);
 	}
-	free(list);
 
 	free_pmf_list(list->marginal_pmfs);
+    
+    free(list);
 }
 
 /**
@@ -249,7 +250,7 @@ double compute_DR_slope(struct pmf_t *pmf, struct distortion_t *dist){
     }
     prev_xi = get_entropy(apply_quantizer(q_temp, pmf, pmf_temp));
     
-    assert(prev_xi ==0.0);
+    //assert(prev_xi ==0.0);
 
     for (i = 2; i<K ; i++) {
         q_temp = generate_quantizer(pmf, dist, i);
@@ -612,7 +613,7 @@ void generate_codebooks(struct quality_file_t *info) {
                     //    hi = h1;
                     //}
                     //target_dist = (hi/h1)*opts->D;
-                    
+                    ///////
                     target_dist = opts->D;
 					ratio = optimize_for_distortion(xpmf_list->pmfs[j], dist,target_dist , &q_lo, &q_hi);
                 }
