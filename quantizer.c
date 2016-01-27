@@ -379,6 +379,14 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 			q->q[i] = reconstruction[j];
 		}
 	}
+    
+    // Add this to make the initialization of the Lloyd-max invisible to the decoder
+    for (i = 0; i<bounds[0]; i++) {
+        q->q[i] = q->q[bounds[0]];
+    }
+    for (i = bounds[states]; i<q->alphabet->size; i++) {
+        q->q[i] = q->q[bounds[states-1]];
+    }
 
 	// Save the output alphabet in the quantizer
 	q->output_alphabet = alloc_alphabet(states);
@@ -435,7 +443,7 @@ void find_output_alphabet(struct quantizer_t *q) {
 	uint32_t size = 0;
 	symbol_t *uniques = (symbol_t *) _alloca(q->alphabet->size * sizeof(symbol_t));
 
-	// First symbol in quantizer output is always unique --> NOT TURE NOW: We need to ignore ALPHABET_NOT_SYMBOLs
+	// First symbol in quantizer output is always unique
 	p = q->q[0];
     if (p != ALPHABET_NOT_SYMBOL) {
         uniques[0] = p;
