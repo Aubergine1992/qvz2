@@ -6,6 +6,8 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
+#define ALPHABET_SIZE 72
+
 #include <math.h>
 #include <stdlib.h>
 #include <float.h>
@@ -42,6 +44,8 @@ struct hrtimer_t {
 	LARGE_INTEGER freq;
 #endif
 };
+
+
 
 // Cross platform timer interface
 void start_timer(struct hrtimer_t *timer);

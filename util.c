@@ -5,6 +5,8 @@
 #include <mach/mach.h>
 #endif
 
+
+
 /**
  * Starts the high resolution timer
  */

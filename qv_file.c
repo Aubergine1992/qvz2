@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "qv_file.h"
+
 /**
  * This reads data from the given file pointer into memory, breaking it into segments
  * of the given number of lines, to ease memory management issues at the cost of some

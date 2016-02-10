@@ -104,7 +104,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
     if (mass_count == 0 || states == 1) {
         assert(states==1);
         bounds[0] = 0;
-        bounds[states] = 42;
+        bounds[states] = ALPHABET_SIZE;
     }
     
     else{
@@ -136,7 +136,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
     }
     if (mass_count == 0 && states == 1) {
         bounds[0] = 0;
-        bounds[states] = 42;
+        bounds[states] = ALPHABET_SIZE;
     }
     else if (mass_count == 0 && states > 1){
         // This should not happend
@@ -236,8 +236,8 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
         // Initial guess for min values
         min_mse = DBL_MAX;
         min_r = bounds[j];
-        assert(bounds[j] < 42);
-        assert(bounds[j+1] <= 42);
+        assert(bounds[j] < ALPHABET_SIZE);
+        assert(bounds[j+1] <= ALPHABET_SIZE);
         // For each possible reconstruction point
         for (r = bounds[j]; r < bounds[j+1]; ++r) {
             // Find its distortion when used for the whole region
@@ -258,7 +258,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
             changed = 1;
             reconstruction[j] = min_r;
         }
-        assert(reconstruction[j] < 42);
+        assert(reconstruction[j] < ALPHABET_SIZE);
     }
     */
     // VERSION 2
@@ -269,7 +269,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
     
     // Create a pointer array to the pmfs
     double** pmf_ptr = (double**)_alloca(size*sizeof(double*));
-    //double *pmf_ptr[42];
+    //double *pmf_ptr[ALPHABET_SIZE];
     for (i = 0; i < size; i++) {
         pmf_ptr[i] = &(pmf->pmf[i]);
     }
@@ -302,11 +302,11 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
         if (next_mse < mse) {
             r += 1;
             bounds[r] = j;
-            assert(bounds[r] < 42);
+            assert(bounds[r] < ALPHABET_SIZE);
         }
     }
     for (j = 0; j <= states; ++j) {
-        assert(bounds[j] <= 42);
+        assert(bounds[j] <= ALPHABET_SIZE);
     }
     */
     
@@ -321,8 +321,8 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 			// Initial guess for min values
 			min_mse = DBL_MAX;
 			min_r = bounds[j];
-            assert(bounds[j] < 42);
-            assert(bounds[j+1] <= 42);
+            assert(bounds[j] < ALPHABET_SIZE);
+            assert(bounds[j+1] <= ALPHABET_SIZE);
 			// For each possible reconstruction point
 			for (r = bounds[j]; r < bounds[j+1]; ++r) {
 				// Find its distortion when used for the whole region
@@ -343,7 +343,7 @@ struct quantizer_t *generate_quantizer(struct pmf_t *restrict pmf, struct distor
 				changed = 1;
 				reconstruction[j] = min_r;
 			}
-            assert(reconstruction[j] < 42);
+            assert(reconstruction[j] < ALPHABET_SIZE);
 		}
 
 		// Then, adjust the bounds for fixed reconstruction points by iterating

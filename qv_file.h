@@ -26,7 +26,7 @@
 #include "distortion.h"
 #include "well.h"
 
-#define ALPHABET_SIZE 42
+#define ALPHABET_SIZE 72
 
 #define qv2ch(a) a - 33
 

@@ -370,12 +370,16 @@ void alphabet_compute_index(struct alphabet_t *A) {
 		free(A->indexes);
 	
 	// Cheating but whatever
-	A->indexes = (uint32_t *) calloc(ALPHABET_INDEX_SIZE_HINT, sizeof(uint32_t));
+	//A->indexes = (uint32_t *) calloc(ALPHABET_INDEX_SIZE_HINT, sizeof(uint32_t));
+    A->indexes = (uint32_t *) calloc(ALPHABET_SIZE+10, sizeof(uint32_t));
 
 	// Fill gaps in the table with an appropriate index so we can use this for search too
-	for (i = 0; i < ALPHABET_INDEX_SIZE_HINT; ++i) {
-		A->indexes[i] = ALPHABET_SYMBOL_NOT_FOUND;
-	}
+	//for (i = 0; i < ALPHABET_INDEX_SIZE_HINT; ++i) {
+	//	A->indexes[i] = ALPHABET_SYMBOL_NOT_FOUND;
+	//}
+    for (i = 0; i < ALPHABET_SIZE+10; ++i) {
+    	A->indexes[i] = ALPHABET_SYMBOL_NOT_FOUND;
+    }
 
 	for (i = 0; i < A->size; ++i) {
 		A->indexes[A->symbols[i]] = i;
