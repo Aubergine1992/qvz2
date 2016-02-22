@@ -214,7 +214,7 @@ qv_file load_file(const char *path, uint64_t max_lines){
     fp = fopen(path, "rt");
     if (!fp) {
         free(my_qv_file);
-        printf("ERROR while opening the file\n");
+        printf("ERROR while opening the file. File in %s NOT FOUND\n", path);
         return NULL;
     }
     
