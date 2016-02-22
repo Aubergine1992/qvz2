@@ -94,6 +94,7 @@ uint32_t load_qv_file(const char *path, struct quality_file_t *info, uint64_t ma
 uint32_t generate_qv_struct(struct qv_file_t* qvs, struct quality_file_t *info, uint64_t max_lines) {
     uint32_t status, block_idx, line_idx;
     
+    printf("0\n");
     //figure out how long the file is
     info->columns = qvs->read_length;
     if (info->columns > MAX_READS_PER_LINE) {
