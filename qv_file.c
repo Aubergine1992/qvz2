@@ -95,7 +95,7 @@ uint32_t generate_qv_struct(struct qv_file_t* qvs, struct quality_file_t *info, 
     uint32_t status, block_idx, line_idx;
     
     printf("0asdf\n");
-    printf("%d\n", qvs->read_length);
+    printf("%d\n", info->columns);
     //figure out how long the file is
     info->columns = qvs->read_length;
     if (info->columns > MAX_READS_PER_LINE) {
