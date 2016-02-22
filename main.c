@@ -135,6 +135,7 @@ void encoding(struct quality_file_t qv_info, struct qv_options_t *opts, const ch
     qv_info.clusters = alloc_cluster_list(&qv_info);
     qv_info.opts = opts;
     
+    printf("Clustering reads....\n");
     // Do clustering
     start_timer(&cluster_time);
     //do_kmeans_clustering(&qv_info);
@@ -148,11 +149,14 @@ void encoding(struct quality_file_t qv_info, struct qv_options_t *opts, const ch
         printf("Clustering took %.4f seconds\n", get_timer_interval(&cluster_time));
     }
     
+    printf("Clustering finished\n");
+    
     // Then find stats and generate codebooks for each cluster
     start_timer(&stats);
     calculate_statistics(&qv_info);
     generate_codebooks(&qv_info);
     stop_timer(&stats);
+    printf("Codebooks computed\n");
     
     if (opts->verbose) {
         printf("Stats and codebook generation took %.4f seconds\n", get_timer_interval(&stats));
@@ -438,6 +442,8 @@ int main(int argc, const char * argv[]) {
             exit(1);
         }
         qv_info.qv_f = qv_f;
+        
+        printf("File loaded into memory\n");
     
         //Generate the clusters and calculate the quantizers and compress
         encoding(qv_info, &opts, output_name);
