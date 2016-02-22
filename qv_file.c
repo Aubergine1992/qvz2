@@ -94,20 +94,18 @@ uint32_t load_qv_file(const char *path, struct quality_file_t *info, uint64_t ma
 uint32_t generate_qv_struct(struct qv_file_t* qvs, struct quality_file_t *info, uint64_t max_lines) {
     uint32_t status, block_idx, line_idx;
     
-    printf("0asdf\n");
-    printf("%d\n", info->columns);
     //figure out how long the file is
     info->columns = qvs->read_length;
     if (info->columns > MAX_READS_PER_LINE) {
         return LF_ERROR_TOO_LONG;
     }
-    printf("0.5\n");
+
     // Figure out how many lines we'll need depending on whether we were limited or not
     info->lines = qvs->lines;
     if (max_lines > 0 && info->lines > max_lines) {
         info->lines = max_lines;
     }
-    printf("1\n");
+
     status = alloc_blocks(info);
     if (status != LF_ERROR_NONE)
         return status;
@@ -115,7 +113,7 @@ uint32_t generate_qv_struct(struct qv_file_t* qvs, struct quality_file_t *info, 
     // Process the file
     block_idx = 0;
     line_idx = 0;
-    printf("2\n");
+
     while ((block_idx * MAX_LINES_PER_BLOCK + line_idx) < info->lines) {
         
         // Setting up mmap indexing assumes we have only one line ending!
@@ -216,6 +214,7 @@ qv_file load_file(const char *path, uint64_t max_lines){
     fp = fopen(path, "rt");
     if (!fp) {
         free(my_qv_file);
+        printf("ERROR while opening the file\n");
         return NULL;
     }
     
@@ -227,6 +226,7 @@ qv_file load_file(const char *path, uint64_t max_lines){
     if (my_qv_file->read_length > MAX_READS_PER_LINE) {
         fclose(fp);
         free(my_qv_file);
+        printf("Read length to large\n");
         return NULL;
     }
     
@@ -242,8 +242,10 @@ qv_file load_file(const char *path, uint64_t max_lines){
     // Right now we put a zero between sequences. This helps for the debbuging but it is not necessary and
     // is a waste of memory (not much, though).
     my_qv_file->file_head = (uint8_t*)calloc(my_qv_file->lines*(my_qv_file->read_length+1), sizeof(uint8_t));
-    if (my_qv_file->file_head == NULL)
+    if (my_qv_file->file_head == NULL){
+        printf("Error allocating the memory for the file\n");
         return NULL;
+    }
     
     current_qv = my_qv_file->file_head;
     line_idx = 0;

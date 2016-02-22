@@ -438,7 +438,7 @@ int main(int argc, const char * argv[]) {
         // Load input file all at once
         qv_file qv_f = load_file(path, -1);
         if (qv_f == NULL) {
-            printf("ERROR loading the file into memory");
+            printf("ERROR loading the file into memory\n");
             return 1;
         }
         printf("File loaded into memory. Generating qv struct...\n");
