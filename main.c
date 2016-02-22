@@ -434,6 +434,7 @@ int main(int argc, const char * argv[]) {
         decode(input_name, output_name, &opts);
     }
     else{
+        printf("Loading file into memory....\n");
         // Load input file all at once
         qv_file qv_f = load_file(path, -1);
         status = generate_qv_struct(qv_f, &qv_info, 0);
