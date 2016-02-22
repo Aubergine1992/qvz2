@@ -354,7 +354,7 @@ double optimize_for_distortion(struct pmf_t *pmf, struct distortion_t *dist, dou
     
     *hi = q_temp;
     *lo = alloc_quantizer(pmf->alphabet);
-    
+    states = 0;
     do {
         free_quantizer(*lo);
         *lo = *hi;
