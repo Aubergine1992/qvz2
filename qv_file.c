@@ -124,6 +124,8 @@ uint32_t generate_qv_struct(struct qv_file_t* qvs, struct quality_file_t *info, 
             
             block_idx += 1;
         }
+        
+        printf("loading block %d", block_idx);
     }
     
     return LF_ERROR_NONE;
