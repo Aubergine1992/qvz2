@@ -100,7 +100,7 @@ uint32_t generate_qv_struct(struct qv_file_t* qvs, struct quality_file_t *info, 
     if (info->columns > MAX_READS_PER_LINE) {
         return LF_ERROR_TOO_LONG;
     }
-    
+    printf("0.5\n");
     // Figure out how many lines we'll need depending on whether we were limited or not
     info->lines = qvs->lines;
     if (max_lines > 0 && info->lines > max_lines) {
