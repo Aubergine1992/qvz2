@@ -437,6 +437,7 @@ int main(int argc, const char * argv[]) {
         printf("Loading file into memory....\n");
         // Load input file all at once
         qv_file qv_f = load_file(path, -1);
+        printf("File loaded into memory. Generating qv struct...\n");
         status = generate_qv_struct(qv_f, &qv_info, 0);
         if (status != LF_ERROR_NONE) {
             printf("load_file returned error: %d\n", status);
@@ -444,7 +445,7 @@ int main(int argc, const char * argv[]) {
         }
         qv_info.qv_f = qv_f;
         
-        printf("File loaded into memory\n");
+        printf("qv struct generated.\n");
     
         //Generate the clusters and calculate the quantizers and compress
         encoding(qv_info, &opts, output_name);
