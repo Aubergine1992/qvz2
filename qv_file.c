@@ -105,7 +105,7 @@ uint32_t generate_qv_struct(struct qv_file_t* qvs, struct quality_file_t *info, 
     if (max_lines > 0 && info->lines > max_lines) {
         info->lines = max_lines;
     }
-    
+    printf("1\n");
     status = alloc_blocks(info);
     if (status != LF_ERROR_NONE)
         return status;
@@ -113,7 +113,9 @@ uint32_t generate_qv_struct(struct qv_file_t* qvs, struct quality_file_t *info, 
     // Process the file
     block_idx = 0;
     line_idx = 0;
+    printf("2\n");
     while ((block_idx * MAX_LINES_PER_BLOCK + line_idx) < info->lines) {
+        
         // Setting up mmap indexing assumes we have only one line ending!
         info->blocks[block_idx].lines[line_idx].m_data = qvs->file_head + ((uint64_t) (block_idx * MAX_LINES_PER_BLOCK + line_idx)) * (info->columns+1);
         
@@ -123,9 +125,8 @@ uint32_t generate_qv_struct(struct qv_file_t* qvs, struct quality_file_t *info, 
             line_idx = 0;
             
             block_idx += 1;
+            printf("block %d loaded\n", block_idx);
         }
-        
-        printf("loading block %d", block_idx);
     }
     
     return LF_ERROR_NONE;
