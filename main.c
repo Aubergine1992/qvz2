@@ -78,6 +78,26 @@ void compute_clusters(struct quality_file_t *qv_info, double ** r, uint64_t num_
     uint32_t seq_idx, i = 0, tmp_model, block_ctr = 0, line_ctr = 0;
     
     double tmp = 0;
+
+    if(qv_info->cluster_count == 1)
+    {
+        qv_info->clusters->clusters[0].count = num_seq;
+        qv_info->clusters->clusters[0].id = 0;
+	
+	for (seq_idx = 0; seq_idx < num_seq; seq_idx++) {
+		qv_info->blocks[block_ctr].lines[line_ctr++].cluster = 0;
+
+        	if (line_ctr == qv_info->blocks[block_ctr].count) {
+            		block_ctr++;
+            		line_ctr = 0;
+        	}
+		
+	}
+
+
+	return;
+	
+    }
     
     for (i = 0; i < qv_info->cluster_count; i++) {
         qv_info->clusters->clusters[i].count = 0;
@@ -141,7 +161,8 @@ void encoding(struct quality_file_t qv_info, struct qv_options_t *opts, const ch
     //do_kmeans_clustering(&qv_info);
     
     // Set up clustering data structures
-    clust_prob = perform_em_temporal_markov(qv_info.qv_f, opts->clusters, opts->num_iters);
+    //clust_prob = perform_em_temporal_markov(qv_info.qv_f, opts->clusters, opts->num_iters);
+    
     compute_clusters(&qv_info, clust_prob, qv_info.lines);
     stop_timer(&cluster_time);
     
@@ -403,12 +424,6 @@ int main(int argc, const char * argv[]) {
         }
         else {
             printf("%s will be encoded as %s.\n", input_name, output_name);
-            if (opts.mode == MODE_RATIO)
-                printf("Ratio mode selected, targeting %f compression ratio.\n", opts.ratio);
-            else if (opts.mode == MODE_FIXED)
-                printf("Fixed-rate mode selected, targeting %f bits per symbol.\n", opts.ratio);
-            else if (opts.mode == MODE_FIXED_MSE)
-                printf("Fixed-MSE mode selected, targeting %f average distortion per context.\n", opts.ratio);
             
             switch (opts.distortion) {
                 case DISTORTION_MSE:
@@ -425,6 +440,7 @@ int main(int argc, const char * argv[]) {
                     break;
             }
             
+            printf("Targeting a distortion of %f.\n", opts.D);
             printf("Compression will use %d clusters, with a movement threshold of %.0f.\n", opts.clusters, opts.cluster_threshold);
         }
     }
