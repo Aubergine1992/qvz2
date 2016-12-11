@@ -75,6 +75,7 @@ uint64_t start_qv_compression(struct quality_file_t *info, FILE *fout, double *d
 
 	do {
 		line = &info->blocks[block_idx].lines[line_idx];
+        columns = info->blocks[block_idx].lines[line_idx].line_length;
 		
         if (info->opts->verbose && line_idx == 0) {
             printf("Line: %dM\n", block_idx);
@@ -98,7 +99,7 @@ uint64_t start_qv_compression(struct quality_file_t *info, FILE *fout, double *d
         
         // @todo use buffer to speed up the writing
         if (funcompressed != NULL) {
-            fputc(qv+33, funcompressed);
+            fputc(qv, funcompressed);
         }
         
         prev_qv = qv;
@@ -111,7 +112,7 @@ uint64_t start_qv_compression(struct quality_file_t *info, FILE *fout, double *d
             
             // @todo use buffer to speed up the writing
             if (funcompressed != NULL) {
-                fputc(qv+33, funcompressed);
+                fputc(qv, funcompressed);
             }
             
             compress_qv(qvc->Quals, q_state, cluster_id, s, idx);
