@@ -277,8 +277,6 @@ int main(int argc, const char * argv[]) {
     uint32_t status;
     const char* path;
     
-    path = argv[1];
-    
     struct quality_file_t qv_info;
     struct qv_options_t opts;
     
