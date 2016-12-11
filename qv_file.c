@@ -40,7 +40,7 @@ uint32_t load_qv_file(const char *path, struct quality_file_t *info, uint64_t ma
     
     // Use the first line to figure out how long the file is
     fgets(line, READ_LINEBUF_LENGTH, fp);
-    info->columns = (uint32_t)strlen(line) - 1;
+    info->columns = strlen(line) - 1;
     if (info->columns > MAX_READS_PER_LINE) {
         fclose(fp);
         return LF_ERROR_TOO_LONG;
@@ -50,6 +50,24 @@ uint32_t load_qv_file(const char *path, struct quality_file_t *info, uint64_t ma
     // Figure out how many lines we'll need depending on whether we were limited or not
     _stat(path, &finfo);
     info->lines = finfo.st_size / ((uint64_t) (info->columns+1));
+    
+    
+    fp = fopen(path, "rt");
+    int ch, number_of_lines = 0, read_length = 0;
+    
+    do
+    {
+        ch = fgetc(fp);
+        read_length++;
+        if(ch == '\n')
+            number_of_lines++;
+    } while (ch != EOF);
+    fclose(fp);
+    
+    
+    info->lines = number_of_lines;
+    
+    
     if (max_lines > 0 && info->lines > max_lines) {
         info->lines = max_lines;
     }
@@ -64,9 +82,28 @@ uint32_t load_qv_file(const char *path, struct quality_file_t *info, uint64_t ma
     // Process the file
     block_idx = 0;
     line_idx = 0;
+    fp = fopen(path, "r");
+    read_length = 0;
+    long long unsigned int cumm_pos = 0;
+    unsigned int max_read_length = 0;
     while ((block_idx * MAX_LINES_PER_BLOCK + line_idx) < info->lines) {
+        
+        info->blocks[block_idx].lines[line_idx].m_data = file_mmap + cumm_pos;
+        
+        while((ch = fgetc(fp)) != '\n'){
+            read_length++;
+            if(read_length>max_read_length)max_read_length = read_length;
+            cumm_pos++;
+        }
+        cumm_pos++;
+        info->blocks[block_idx].lines[line_idx].line_length = read_length;
+        read_length = 0;
+        
+        
+        
+        
         // Setting up mmap indexing assumes we have only one line ending!
-        info->blocks[block_idx].lines[line_idx].m_data = file_mmap + ((uint64_t) (block_idx * MAX_LINES_PER_BLOCK + line_idx)) * (info->columns+1);
+        //info->blocks[block_idx].lines[line_idx].m_data = file_mmap + ((uint64_t) (block_idx * MAX_LINES_PER_BLOCK + line_idx)) * (info->columns+1);
         
         // Increment line/block pointers as necesary
         line_idx += 1;
@@ -75,6 +112,7 @@ uint32_t load_qv_file(const char *path, struct quality_file_t *info, uint64_t ma
             block_idx += 1;
         }
     }
+    info->columns = max_read_length;
     
     return LF_ERROR_NONE;
 }

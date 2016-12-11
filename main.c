@@ -282,30 +282,14 @@ int main(int argc, const char * argv[]) {
     struct quality_file_t qv_info;
     struct qv_options_t opts;
     
-    double A[25]={1,2,3,4,5, 2,3,4,1,5, 6,6,4,8,7, 9,4,3,6,7, 3,5,7,1,2};
-    double **c;
-    int i,j,n=5;
-    c = malloc((n)*sizeof(double *));
-    for (i=0;i<n;i++){
-        c[i] = malloc((n)*sizeof(double));
-        for (j=0; j<n; j++) {
-            c[i][j]=A[n*i+j];
-        }
-    }
-    
-    double **b;
-    b = malloc((n)*sizeof(double *));
-    for (i=0;i<n;i++)
-        b[i] = malloc((n)*sizeof(double));
+    int i,j;
     
     uint8_t extract = 0;
     uint8_t file_idx = 0;
     
     const char *input_name = 0;
     const char *output_name = 0;
-    
-    //MxM(c, c, &A, 5, 5, 25);
-    //Inverse(c, b, 5);
+
     
     // DEFAULT OPTIONS
     opts.verbose = 0;
@@ -420,10 +404,10 @@ int main(int argc, const char * argv[]) {
     
     if (opts.verbose) {
         if (extract) {
-            printf("%s will be decoded to %s.\n", input_name, output_name);
+            printf("%s will be decoded to %s\n", input_name, output_name);
         }
         else {
-            printf("%s will be encoded as %s.\n", input_name, output_name);
+            printf("%s will be encoded as %s\n", input_name, output_name);
             
             switch (opts.distortion) {
                 case DISTORTION_MSE:
@@ -450,23 +434,33 @@ int main(int argc, const char * argv[]) {
         decode(input_name, output_name, &opts);
     }
     else{
-        printf("Loading file into memory....\n");
+        
+        // This part below we needed for the clustering
+        
+        //printf("Loading file into memory....\n");
         // Load input file all at once
-        qv_file qv_f = load_file(path, -1);
-        if (qv_f == NULL) {
-            printf("ERROR loading the file into memory\n");
-            return 1;
-        }
-        printf("File loaded into memory. Generating qv struct...\n");
-        status = generate_qv_struct(qv_f, &qv_info, 0);
+        //qv_file qv_f = load_file(input_name, -1);
+        //if (qv_f == NULL) {
+        //    printf("ERROR loading the file into memory\n");
+        //    return 1;
+        //}
+        //printf("File loaded into memory. Generating qv struct...\n");
+        //status = generate_qv_struct(qv_f, &qv_info, 0);
+        //if (status != LF_ERROR_NONE) {
+        //    printf("load_file returned error: %d\n", status);
+        //    exit(1);
+        //}
+        //qv_info.qv_f = qv_f;
+        
+        //printf("qv struct generated.\n");
+    
+        // Load input file all at once
+        status = load_qv_file(input_name, &qv_info, 0);
         if (status != LF_ERROR_NONE) {
             printf("load_file returned error: %d\n", status);
             exit(1);
         }
-        qv_info.qv_f = qv_f;
         
-        printf("qv struct generated.\n");
-    
         //Generate the clusters and calculate the quantizers and compress
         encoding(qv_info, &opts, output_name);
     }

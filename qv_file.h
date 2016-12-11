@@ -47,6 +47,7 @@
 struct line_t {
 	uint8_t cluster;		// Assigned cluster ID
 	const symbol_t *m_data;	// Pointer to part of mmap'd region, has no offsets applied, do not modify!
+    uint32_t line_length;
 };
 
 /**
@@ -98,6 +99,7 @@ struct quality_file_t {
 	struct alphabet_t *alphabet;
 	char *path;
 	uint64_t lines;
+    unsigned int max_read_length;
 	uint32_t columns;
 	uint32_t block_count;
 	struct line_block_t *blocks;
