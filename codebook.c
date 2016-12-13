@@ -654,6 +654,7 @@ void generate_codebooks(struct quality_file_t *info) {
 void write_codebook(FILE *fp, struct cond_quantizer_list_t *quantizers) {
 	uint32_t i, j, k;
 	uint32_t columns = quantizers->columns;
+
 	struct quantizer_t *q_temp = get_cond_quantizer_indexed(quantizers, 0, 0);
 	uint32_t size = q_temp->alphabet->size;
 	uint32_t buflen = columns > size ? columns : size;
@@ -720,7 +721,6 @@ void write_codebooks(FILE *fp, struct quality_file_t *info) {
     fwrite(linebuf, sizeof(char), 1, fp);
     fwrite(&columns, sizeof(uint32_t), 1, fp);
     fwrite(&lines, sizeof(uint32_t), 1, fp);
-    
     // Now, write each cluster's codebook in order
     for (j = 0; j < info->cluster_count; ++j) {
         write_codebook(fp, info->clusters->clusters[j].qlist);

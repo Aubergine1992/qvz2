@@ -66,8 +66,9 @@ uint64_t start_qv_compression(struct quality_file_t *info, FILE *fout, double *d
         
     
     // Initialize the compressor
+    printf("initializing compressor\n");
     qvc = initialize_qv_compressor(fout, COMPRESSION, info);
-    
+   printf("compressor initialized\n\n"); 
     // Start compressing the file
 	distortion = 0.0;
 	block_idx = 0;
@@ -78,6 +79,7 @@ uint64_t start_qv_compression(struct quality_file_t *info, FILE *fout, double *d
         columns = info->blocks[block_idx].lines[line_idx].line_length;
 		
         if (info->opts->verbose && line_idx == 0) {
+
             printf("Line: %dM\n", block_idx);
         }
 

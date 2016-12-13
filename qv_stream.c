@@ -120,6 +120,7 @@ arithStream initialize_arithStream(FILE *fout, uint8_t decompressor_flag, struct
 qv_compressor initialize_qv_compressor(FILE *fout, uint8_t streamDirection, struct quality_file_t *info) {
     qv_compressor s;
     s = calloc(1, sizeof(struct qv_compressor_t));
+    printf("check 1\n");
     s->Quals = initialize_arithStream(fout, streamDirection, info);
     return s;
 }
