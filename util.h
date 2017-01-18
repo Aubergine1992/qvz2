@@ -14,7 +14,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#ifdef LINUX
+#ifdef __linux__
 	#include <time.h>
 	#define _stat stat
 	#define _alloca alloca
@@ -30,7 +30,7 @@
 #endif
 
 struct hrtimer_t {
-#ifdef LINUX
+#ifdef __linux__
 	struct timespec start;
 	struct timespec stop;
 	struct timespec res;
@@ -56,7 +56,7 @@ double get_timer_interval(struct hrtimer_t *timer);
 int cb_log2(int x);
 
 // Missing log2 function
-#ifndef LINUX
+#ifndef __linux__
 	#define log2(x) (log(x)/log(2.0))
 #endif
 
@@ -67,5 +67,6 @@ int cb_log2(int x);
 #ifndef NAN
 	#define NAN (INFINITY - INFINITY)
 #endif
+
 
 #endif

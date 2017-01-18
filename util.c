@@ -11,7 +11,7 @@
  * Starts the high resolution timer
  */
 void start_timer(struct hrtimer_t *timer) {
-#ifdef LINUX
+#ifdef __linux__
 	clock_gettime(CLOCK_REALTIME, &timer->start);
 #elif __APPLE__
 // OS X does not have clock_gettime, use clock_get_time
@@ -32,7 +32,7 @@ void start_timer(struct hrtimer_t *timer) {
  * Stops the high resolution timer
  */
 void stop_timer(struct hrtimer_t *timer) {
-#ifdef LINUX
+#ifdef __linux__
 	clock_gettime(CLOCK_REALTIME, &timer->stop);
 #elif __APPLE__
 // OS X does not have clock_gettime, use clock_get_time
@@ -52,7 +52,8 @@ void stop_timer(struct hrtimer_t *timer) {
  * Reads the high resolution timer in seconds
  */
 double get_timer_interval(struct hrtimer_t *timer) {
-#ifdef LINUX
+
+#ifdef __linux__
 	long dnsec = timer->stop.tv_nsec - timer->start.tv_nsec;
 	int dsec = timer->stop.tv_sec - timer->start.tv_sec;
 
